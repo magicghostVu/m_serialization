@@ -1,5 +1,5 @@
 package pack
 
 fun main() {
-    println("ok run1")
+    println("${String::class.qualifiedName}")
 }
