@@ -14,6 +14,12 @@ repositories {
 
 dependencies {
     testImplementation(kotlin("test"))
+
+
+    // import netty
+    implementation("io.netty:netty-buffer:4.1.85.Final")
+
+
     // để có thể dùng các annotation trong project
     implementation(project(":ksp_logic"))
 

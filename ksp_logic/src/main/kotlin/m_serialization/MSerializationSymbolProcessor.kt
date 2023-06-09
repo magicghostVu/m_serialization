@@ -1,6 +1,6 @@
 package m_serialization
 
-import com.google.devtools.ksp.getDeclaredProperties
+import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
@@ -8,6 +8,7 @@ import com.google.devtools.ksp.symbol.KSAnnotated
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import m_serialization.annotations.MSerialization
+import m_serialization.annotations.MTransient
 
 class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment) : SymbolProcessor {
 
@@ -24,6 +25,8 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 .toString()
         )
 
+        val setAllClass = allClassWillProcess.toSet()
+
         allClassWillProcess.forEach {
             val classDeclaration = it as KSClassDeclaration
 
@@ -31,7 +34,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
 
             // get các props được khai báo tại class hiện tại
-            classDeclaration.getDeclaredProperties()
+            //classDeclaration.getDeclaredProperties()
 
 
             // get các prop được khai báo cả ở class cha
@@ -42,6 +45,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 listAllPropData.add(
                     MPropData(prop.simpleName.asString(), prop.hasBackingField)
                 )
+
+                // chú ý phương thức này để tìm kiểu của type parameter
+                //prop.asMemberOf()
+                //prop.asMemberOf()
             }
 
             logger.warn("class $name, props $listAllPropData")
@@ -54,6 +61,37 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
         return emptyList()
     }
+
+
+    private fun verifyClassConstructor(clazz: KSClassDeclaration) {
+        val primaryConstructor = clazz.primaryConstructor
+        val className = clazz.qualifiedName?.asString()
+        primaryConstructor
+            ?: throw IllegalArgumentException("class $className not had primary constructor")
+
+        val allParams = primaryConstructor.parameters
+        val allParamIsProp = allParams.all {
+            it.isVal || it.isVar
+        }
+        if (!allParamIsProp) throw IllegalArgumentException("class $className at primary constructor had a param not a property")
+    }
+
+    // tất cả các prop phải là
+    private fun verifyAllPropSerializable(clazz: KSClassDeclaration) {
+
+
+        val allProps = clazz.getAllProperties()
+        val propsWillVerify = allProps
+            .asSequence()
+            .filter {
+                it.hasBackingField
+            }
+            .filter {
+
+                it.annotations.asSequence().
+            }
+    }
+
 }
 
 
@@ -65,7 +103,6 @@ fun KSPropertyDeclaration.isPrimitiveProp(): Boolean {
 
     return false
 }
-
 
 
 data class MPropData(val name: String, val hadBackingField: Boolean) {
