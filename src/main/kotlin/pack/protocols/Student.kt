@@ -7,7 +7,7 @@ import m_serialization.utils.ByteBufUtils.readString
 import m_serialization.utils.ByteBufUtils.writeString
 
 
-@MSerialization
+@MSerialization("sss")
 sealed class Student() {
     abstract val age: Int
     abstract val name: String
@@ -48,6 +48,7 @@ object VMSerializer {
     }
 
     fun read(buffer: ByteBuf): V {
+        // thứ tự này sẽ được gen = code
         val k = buffer.readString()
         val age = buffer.readInt()
         val name = buffer.readString()

@@ -1,6 +1,5 @@
 package m_serialization
 
-import com.google.devtools.ksp.isConstructor
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
@@ -9,6 +8,8 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
+import m_serialization.data.PrimitiveType.Companion.isPrimitive
+import java.util.LinkedList
 
 class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment) : SymbolProcessor {
 
@@ -25,35 +26,58 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 .toString()
         )
 
-        val setAllClass = allClassWillProcess.toSet()
+        val setAllClass = allClassWillProcess
+            .map { it as KSClassDeclaration }
+            .toSet()
 
-        allClassWillProcess.forEach {
-            val classDeclaration = it as KSClassDeclaration
+        /* allClassWillProcess.forEach {
+             val classDeclaration = it as KSClassDeclaration
 
-            val name = classDeclaration.qualifiedName?.asString()
-
-
-            // get các props được khai báo tại class hiện tại
-            //classDeclaration.getDeclaredProperties()
+             val name = classDeclaration.qualifiedName?.asString()
 
 
-            // get các prop được khai báo cả ở class cha
-            val allProps = classDeclaration.getAllProperties()
+             // get các props được khai báo tại class hiện tại
+             //classDeclaration.getDeclaredProperties()
 
-            val listAllPropData = mutableListOf<MPropData>()
-            allProps.forEach { prop ->
-                listAllPropData.add(
-                    MPropData(prop.simpleName.asString(), prop.hasBackingField)
-                )
 
-                // chú ý phương thức này để tìm kiểu của type parameter
-                //prop.asMemberOf()
-                //prop.asMemberOf()
-            }
+             // get các prop được khai báo cả ở class cha
+             val allProps = classDeclaration.getAllProperties()
 
-            logger.warn("class $name, props $listAllPropData")
-        }
+             val listAllPropData = mutableListOf<MPropData>()
+             allProps.forEach { prop ->
+                 listAllPropData.add(
+                     MPropData(prop.simpleName.asString(), prop.hasBackingField)
+                 )
+
+                 // chú ý phương thức này để tìm kiểu của type parameter
+                 //prop.asMemberOf()
+                 //prop.asMemberOf()
+             }
+
+             //logger.warn("class $name, props $listAllPropData")
+         }*/
         // verify source
+
+
+        setAllClass
+            .asSequence()
+            .map {
+                verifyAllPropNotGenericsSerializable(it)
+                it
+            }
+            .map {
+                verifyClassConstructor(it)
+                it
+            }
+            .map {
+                verifyAllTransientProp(it)
+                it
+            }
+            .map {
+                verifyGenericsProp(it)
+                it
+            }
+            .forEach { _ -> }
 
 
         // gen code
@@ -62,7 +86,27 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         return emptyList()
     }
 
+    //hỗ trợ map(MutableMap/Map ->HashMap, TreeMap)
+    // list (LinkedList, List/MutableList -> mutableListOf())
+    // tạm thời chưa hỗ trợ nested generics
+    private fun verifyGenericsProp(clazz: KSClassDeclaration) {
+        clazz.getAllProperties()
+            .map {
+                val type = it.type.resolve()
+                Pair(it, type)
+            }
+            .filter { (prop, type) ->
+                type.arguments.isNotEmpty()
+            }
+            .forEach { (prop, type) ->
+                // check class của khai báo
+                val classDecOfProp = type.declaration as KSClassDeclaration
+                logger.warn("prop ${prop.simpleName.asString()} at ${type.declaration.qualifiedName?.asString()}")
+            }
+    }
 
+
+    // tất cả các tham số trong constructor phải là var hoặc val
     private fun verifyClassConstructor(clazz: KSClassDeclaration) {
         val primaryConstructor = clazz.primaryConstructor
         val className = clazz.qualifiedName?.asString()
@@ -76,32 +120,136 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         if (!allParamIsProp) throw IllegalArgumentException("class $className at primary constructor had a param not a property")
     }
 
-    // tất cả các prop phải là
-    private fun verifyAllPropSerializable(clazz: KSClassDeclaration) {
+    // tất cả các prop(không có type param) phải là primitive hoặc là serializable hoặc là có MTransient
 
-
+    private fun verifyAllPropNotGenericsSerializable(clazz: KSClassDeclaration) {
         val allProps = clazz.getAllProperties()
-        val propsWillVerify = allProps
+        allProps
+            .filter {
+                it.hasBackingField
+            }
+            .map {
+                val type = it.type.resolve()
+                Triple(it, type, type.declaration as KSClassDeclaration)
+            }
+            // lọc những thằng primitive ra
+            .filter { (_, type, _) ->
+                !type.isPrimitive()
+            }
+            // lọc những thằng có generics ra
+            // những thằng có generic sẽ được check ở phase sau
+            .filter { (_, type, _) ->
+                type.arguments.isEmpty()
+            }
+            //lọc những thằng có MTransient
+            .filter { (prop, _, _) ->
+                val allAnnoThisProps = prop.annotations
+                    .map { a ->
+                        a.annotationType
+                            .resolve()
+                            .declaration
+                            .qualifiedName!!.asString()
+                    }.toSet()
+                !allAnnoThisProps.contains(MTransient::class.java.name)
+            }
+            .forEach { (prop, _, classDec) ->
+                // check class khai báo phải có tag MSerializable ở class khai báo
+                val allAnnoName = classDec.getAllAnnotationName()
+
+                if (allAnnoName.isNotEmpty()) {
+                    //val valid = allAnnoName.contains("m_serialization.annotations.MSerialization")
+                    val valid = allAnnoName.contains(MSerialization::class.java.name)
+                    if (valid) {
+                        logger.warn("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} valid")
+                    } else {
+                        logger.error("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} is not serializable")
+                    }
+                } else {
+                    logger.error("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} is not serializable")
+                }
+            }
+    }
+
+    // tất cả các prop có MTransient của class này phải có giá trị mặc định
+    // nếu prop không có ở constructor thì nó phải là var và không được phép là private
+    private fun verifyAllTransientProp(clazz: KSClassDeclaration) {
+        val constructor = clazz.primaryConstructor!!
+
+        // tại đây tất cả các param đều là prop rồi
+        val allNamePropHadTransientInConstructor = constructor
+            .parameters
             .asSequence()
+            .filter {
+                val allAnnoName = it.annotations
+                    .map { ann ->
+                        ann.annotationType
+                    }
+                    .map { t ->
+                        t.resolve().declaration.qualifiedName!!.asString()
+                    }
+                    .toSet()
+                allAnnoName.contains(MTransient::class.java.name)
+            }
+            .map { it.name!!.asString() }
+            .toSet()
+
+        val nameToTransientProp = clazz
+            .getAllProperties()
             .filter {
                 it.hasBackingField
             }
             .filter {
-
-                it.annotations.asSequence().
+                val allAnno = it.getAllAnnotationName()
+                allAnno.contains(MTransient::class.java.name)
             }
+            .associateBy {
+                it.simpleName.asString()
+            }
+            .toMutableMap()
+
+        allNamePropHadTransientInConstructor.forEach {
+            nameToTransientProp.remove(it)
+        }
+
+        // check tất cả các prop này phải là var
+        nameToTransientProp.values.forEach {
+            if (!it.isMutable) {
+                logger.error("transient prop ${it.qualifiedName?.asString()} at ${clazz.qualifiedName?.asString()} is not mutable")
+            }
+        }
+
+
     }
 
-}
+    private fun KSPropertyDeclaration.getAllAnnotationName(): Set<String> {
+        return annotations
+            .map { anno ->
+                anno.annotationType
+                    .resolve()
+                    .declaration
+                    .qualifiedName
+            }
+            .filterNotNull()
+            .map {
+                it.asString()
+            }.toSet()
+    }
+
+    private fun KSClassDeclaration.getAllAnnotationName(): Set<String> {
+        return annotations
+            .map { anno ->
+                anno.annotationType
+                    .resolve()
+                    .declaration
+                    .qualifiedName
+            }
+            .filterNotNull()
+            .map {
+                it.asString()
+            }.toSet()
+    }
 
 
-// nếu là 1 trong 8 kiểu cơ bản
-// : Int, Long, Short, Float, Bool, Double, Byte,String
-fun KSPropertyDeclaration.isPrimitiveProp(): Boolean {
-    val type = type
-    val trueType = type.resolve()
-
-    return false
 }
 
 
