@@ -77,6 +77,15 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         setAllClass
             .asSequence()
             .map {
+
+                val numTypeParam = it.typeParameters.size
+                if (numTypeParam > 0) {
+                    logger.error("class ${it.qualifiedName} had type param, can not serializable")
+                }
+
+                it
+            }
+            .map {
                 verifyAllPropNotGenericsSerializable(it)
                 it
             }
@@ -130,8 +139,14 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     logger.error("prop $propName at class $containerClassName not serializable")
                 }
 
+
                 // check tham số kiểu của khai báo
                 //classDecOfProp.as
+
+                val cc = type.arguments.forEach {
+                    it.type.resolve()
+                }
+                logger.warn("prop $propName at class $containerClassName had ${type.arguments}")
 
             }
     }
@@ -258,7 +273,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             val subList = allPropInConstructor.subList(index, allPropInConstructor.size)
             val anyLastNotTransient = subList.any { !it.hadTransient }
             if (anyLastNotTransient) {
-                logger.error("class ${clazz.qualifiedName?.asString()} had some transient properties in constructor not last position")
+                logger.error("class ${clazz.qualifiedName?.asString()} had some transient properties in constructor not at last position")
             }
         }
 
