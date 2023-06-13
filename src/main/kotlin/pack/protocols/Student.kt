@@ -22,7 +22,7 @@ class V(
     var p = 0;
 
 
-    @MTransient("mutableMapOf()")
+    @MTransient()
     var mapp: MutableMap<String, Int> = mutableMapOf()
 
     val pp: Int

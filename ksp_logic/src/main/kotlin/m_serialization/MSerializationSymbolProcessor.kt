@@ -16,14 +16,16 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     private val logger = env.logger
 
 
-    // tạm thời chưa hỗ trợ tree map
+    // tạm thời chưa hỗ trợ object làm key
+    // tất cả các key phải là primitive
     // xem có thể hỗ trợ trong tương lai
     val setClassGenericsAccept: Set<String> = setOf(
         "kotlin.collections.MutableList",
         "java.util.LinkedList",
         "kotlin.collections.List",
         "kotlin.collections.MutableMap",
-        "kotlin.collections.Map"
+        "kotlin.collections.Map",
+        "java.util.TreeMap"
     )
 
 
@@ -104,20 +106,31 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     // tạm thời chưa hỗ trợ nested generics
     private fun verifyGenericsProp(clazz: KSClassDeclaration) {
         clazz.getAllProperties()
+            // lọc transient
+            .filter {
+                val allAnno = it.getAllAnnotationName()
+                !allAnno.contains(MTransient::class.java.name)
+            }
             .map {
                 val type = it.type.resolve()
                 Pair(it, type)
             }
-            .filter { (prop, type) ->
+            .filter { (_, type) ->
                 type.arguments.isNotEmpty()
             }
             .forEach { (prop, type) ->
                 // check class của khai báo
                 val classDecOfProp = type.declaration as KSClassDeclaration
-                logger.warn("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} is ${classDecOfProp.qualifiedName?.asString()}")
+                val propName = prop.simpleName.asString()
+                val containerClassName = clazz.qualifiedName?.asString()
+                val classNameOfProp = classDecOfProp.qualifiedName!!.asString()
+                logger.warn("prop $propName at $containerClassName is $classNameOfProp")
 
-                
-                // check kiểu của khai báo
+                if (!setClassGenericsAccept.contains(classNameOfProp)) {
+                    logger.error("prop $propName at class $containerClassName not serializable")
+                }
+
+                // check tham số kiểu của khai báo
                 //classDecOfProp.as
 
             }
@@ -188,54 +201,66 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
     }
 
-    // tất cả các prop có MTransient của class này phải có giá trị mặc định
-    // nếu prop không có ở constructor thì nó phải là var và không được phép là private
+    // tất cả các prop có MTransient ở constructor của class này phải có giá trị mặc định
+    // tất cả các prop transient trong constructor phải được đặt ở cuối -> đơn giản hoá việc gọi constructor lúc gen code
     private fun verifyAllTransientProp(clazz: KSClassDeclaration) {
         val constructor = clazz.primaryConstructor!!
 
         // tại đây tất cả các param đều là prop rồi
-        val allNamePropHadTransientInConstructor = constructor
+        val allPropInConstructor = constructor
             .parameters
             .asSequence()
-            .filter {
-                val allAnnoName = it.annotations
-                    .map { ann ->
-                        ann.annotationType
-                    }
-                    .map { t ->
-                        t.resolve().declaration.qualifiedName!!.asString()
-                    }
-                    .toSet()
-                allAnnoName.contains(MTransient::class.java.name)
+            .map {
+                val name = it.name!!.asString()
+                val hadDefaultValue = it.hasDefault
+                TempPropData(name, hadDefaultValue)
             }
-            .map { it.name!!.asString() }
-            .toSet()
+            .toList()
 
-        val nameToTransientProp = clazz
+
+        val nameToProp = clazz
             .getAllProperties()
-            .filter {
-                it.hasBackingField
+            .map {
+                Pair(it.simpleName.asString(), it)
             }
-            .filter {
-                val allAnno = it.getAllAnnotationName()
-                allAnno.contains(MTransient::class.java.name)
-            }
-            .associateBy {
-                it.simpleName.asString()
-            }
-            .toMutableMap()
+            .toMap()
 
-        allNamePropHadTransientInConstructor.forEach {
-            nameToTransientProp.remove(it)
+        allPropInConstructor
+            .forEach {
+                val prop = nameToProp.getValue(it.name)
+                val hadTransient = prop.getAllAnnotationName().contains(MTransient::class.java.name)
+                it.hadTransient = hadTransient
+            }
+
+        val allTransientHadDefault = allPropInConstructor
+            .asSequence()
+            .filter {
+                it.hadTransient
+            }
+            .all { it.hadDefaultValue }
+        if (!allTransientHadDefault) {
+            logger.error("some prop transient at ${clazz.qualifiedName?.asString()} had not default value")
         }
 
-        // check tất cả các prop này phải là var
-        nameToTransientProp.values.forEach {
-            if (!it.isMutable) {
-                logger.error("transient prop ${it.qualifiedName?.asString()} at ${clazz.qualifiedName?.asString()} is not mutable")
+        // check các prop transient phải ở cuối
+        val firstIndexHadTransient = allPropInConstructor
+            .withIndex()
+            .asSequence()
+            .filter {
+                it.value.hadTransient
+            }
+            .firstOrNull()
+
+
+
+        if (firstIndexHadTransient != null) {
+            val index = firstIndexHadTransient.index
+            val subList = allPropInConstructor.subList(index, allPropInConstructor.size)
+            val anyLastNotTransient = subList.any { !it.hadTransient }
+            if (anyLastNotTransient) {
+                logger.error("class ${clazz.qualifiedName?.asString()} had some transient properties in constructor not last position")
             }
         }
-
 
     }
 
@@ -270,7 +295,4 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
 }
 
-
-data class MPropData(val name: String, val hadBackingField: Boolean) {
-
-}
+data class TempPropData(val name: String, val hadDefaultValue: Boolean, var hadTransient: Boolean = false)

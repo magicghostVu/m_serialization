@@ -7,11 +7,14 @@ import kotlin.concurrent.thread
 @MSerialization
 class Container(
     val s: Student,
-    @MTransient(defaultValueExpression = "thread { }")
-    var k: Thread = thread { }
+    val o: Int,
+    @MTransient()
+    var k: Thread = thread { },
+    @MTransient
+    var l: Thread = thread { },
 ) {
-    @MTransient(defaultValueExpression = "thread {  }")
-    var cc:Thread = thread {  }
+    @MTransient
+    var cc: Thread = thread { }
 }
 
 // code gen prototype
