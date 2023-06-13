@@ -9,15 +9,28 @@ import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.PrimitiveType.Companion.isPrimitive
-import java.util.LinkedList
+
 
 class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment) : SymbolProcessor {
 
     private val logger = env.logger
 
+
+    // tạm thời chưa hỗ trợ tree map
+    // xem có thể hỗ trợ trong tương lai
+    val setClassGenericsAccept: Set<String> = setOf(
+        "kotlin.collections.MutableList",
+        "java.util.LinkedList",
+        "kotlin.collections.List",
+        "kotlin.collections.MutableMap",
+        "kotlin.collections.Map"
+    )
+
+
     init {
         logger.warn("init ksp logic")
     }
+
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
         val allClassWillProcess = resolver.getSymbolsWithAnnotation(
@@ -101,7 +114,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .forEach { (prop, type) ->
                 // check class của khai báo
                 val classDecOfProp = type.declaration as KSClassDeclaration
-                logger.warn("prop ${prop.simpleName.asString()} at ${type.declaration.qualifiedName?.asString()}")
+                logger.warn("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} is ${classDecOfProp.qualifiedName?.asString()}")
+
+                
+                // check kiểu của khai báo
+                //classDecOfProp.as
+
             }
     }
 
@@ -160,7 +178,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     //val valid = allAnnoName.contains("m_serialization.annotations.MSerialization")
                     val valid = allAnnoName.contains(MSerialization::class.java.name)
                     if (valid) {
-                        logger.warn("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} valid")
+                        //logger.warn("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} valid")
                     } else {
                         logger.error("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} is not serializable")
                     }
