@@ -46,36 +46,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         val setAllClass = allClassWillProcess
             .map { it as KSClassDeclaration }
             .toSet()
-
-        /* allClassWillProcess.forEach {
-             val classDeclaration = it as KSClassDeclaration
-
-             val name = classDeclaration.qualifiedName?.asString()
-
-
-             // get các props được khai báo tại class hiện tại
-             //classDeclaration.getDeclaredProperties()
-
-
-             // get các prop được khai báo cả ở class cha
-             val allProps = classDeclaration.getAllProperties()
-
-             val listAllPropData = mutableListOf<MPropData>()
-             allProps.forEach { prop ->
-                 listAllPropData.add(
-                     MPropData(prop.simpleName.asString(), prop.hasBackingField)
-                 )
-
-                 // chú ý phương thức này để tìm kiểu của type parameter
-                 //prop.asMemberOf()
-                 //prop.asMemberOf()
-             }
-
-             //logger.warn("class $name, props $listAllPropData")
-         }*/
-        // verify source
-
-
         setAllClass
             .asSequence()
             .map {
@@ -114,6 +84,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .forEach { _ -> }
 
         // gen code
+
+        // gen kt
+        // khi gen đến code class nào
+        // thì mặc định các class dependencies của nó đã được gen rồi
 
         return emptyList()
     }

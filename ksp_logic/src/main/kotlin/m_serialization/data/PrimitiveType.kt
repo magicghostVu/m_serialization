@@ -1,11 +1,8 @@
 package m_serialization.data
 
 import com.google.devtools.ksp.symbol.KSType
-import com.google.devtools.ksp.symbol.KSTypeArgument
 
-sealed class MPropsData(val name: String) {
-    abstract fun isValid(): Boolean
-}
+
 
 
 enum class PrimitiveType(val className: String) {
@@ -28,33 +25,5 @@ enum class PrimitiveType(val className: String) {
         fun KSType.isPrimitive(): Boolean {
             return allPrimitiveName.contains(declaration.qualifiedName!!.asString())
         }
-    }
-}
-
-class PrimitivePropsData(
-    name: String,
-    val primitiveType: PrimitiveType
-) : MPropsData(name) {
-    override fun isValid(): Boolean {
-        return true
-    }
-}
-
-// các prop không có generic
-class ClassBasedPropData(name: String, val type: KSType) : MPropsData(name) {
-
-    // hợp lệ nếu như
-    override fun isValid(): Boolean {
-        TODO("Not yet implemented")
-    }
-}
-
-class GenericPropData(
-    name: String,
-    val type: KSType,
-    val allKSTypeArgument: List<KSTypeArgument>
-) : MPropsData(name) {
-    override fun isValid(): Boolean {
-        TODO("Not yet implemented")
     }
 }
