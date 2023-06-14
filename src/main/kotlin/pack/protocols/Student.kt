@@ -68,6 +68,7 @@ object VMSerializer {
     }
 }
 
+@MSerialization
 class KK(
     val oo: String,
     override val name: String,

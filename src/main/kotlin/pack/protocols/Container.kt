@@ -5,9 +5,9 @@ import m_serialization.annotations.MTransient
 import kotlin.concurrent.thread
 
 @MSerialization
-class Container(
-    val s: Student,
-    val o: Int,
+sealed class Container(
+    open val s: Student,
+    open val o: Int,
     @MTransient()
     var k: Thread = thread { },
     @MTransient
@@ -16,6 +16,9 @@ class Container(
     @MTransient
     var cc: Thread = thread { }
 }
+
+@MSerialization
+class CC2(override val s: Student, override val o: Int) : Container(s, o)
 
 // code gen prototype
 object ContainerMSerializer {

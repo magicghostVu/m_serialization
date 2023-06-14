@@ -3,13 +3,15 @@ package m_serialization
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
-import com.google.devtools.ksp.symbol.KSAnnotated
-import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.PrimitiveType.Companion.isPrimitive
 
+enum class GenericTypeSupport {
+    LIST,
+    MAP
+}
 
 class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment) : SymbolProcessor {
 
@@ -19,13 +21,13 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     // tạm thời chưa hỗ trợ object làm key
     // tất cả các key phải là primitive
     // xem có thể hỗ trợ trong tương lai
-    val setClassGenericsAccept: Set<String> = setOf(
-        "kotlin.collections.MutableList",
-        "java.util.LinkedList",
-        "kotlin.collections.List",
-        "kotlin.collections.MutableMap",
-        "kotlin.collections.Map",
-        "java.util.TreeMap"
+    private val fullNameToTypeGenericSupport: Map<String, GenericTypeSupport> = mapOf(
+        "kotlin.collections.MutableList" to GenericTypeSupport.LIST,
+        "java.util.LinkedList" to GenericTypeSupport.LIST,
+        "kotlin.collections.List" to GenericTypeSupport.LIST,
+        "kotlin.collections.MutableMap" to GenericTypeSupport.MAP,
+        "kotlin.collections.Map" to GenericTypeSupport.MAP,
+        "java.util.TreeMap" to GenericTypeSupport.MAP
     )
 
 
@@ -80,7 +82,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
                 val numTypeParam = it.typeParameters.size
                 if (numTypeParam > 0) {
-                    logger.error("class ${it.qualifiedName} had type param, can not serializable")
+                    logger.error("class ${it.qualifiedName?.asString()} had type param, can not serializable")
                 }
 
                 it
@@ -101,13 +103,61 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 verifyGenericsProp(it)
                 it
             }
+            .map {
+                verifySealedClass(it)
+                it
+            }
+            .map {
+                verifyPrimitiveNotNull(it)
+                it
+            }
             .forEach { _ -> }
-
 
         // gen code
 
-
         return emptyList()
+    }
+
+
+    private fun verifyPrimitiveNotNull(classDec: KSClassDeclaration) {
+        if (classDec.modifiers.contains(Modifier.SEALED)) return
+        classDec
+            .getAllProperties()
+            .filter {
+                it.hasBackingField
+            }
+            .filter {
+                !it.getAllAnnotationName()
+                    .contains(MTransient::class.java.name)
+            }
+            .map {
+                Pair(it.type.resolve(), it)
+            }.filter {
+                it.first.isPrimitive()
+            }
+            .forEach { (type, prop) ->
+                if (type.isMarkedNullable) {
+                    val propName = prop.simpleName.asString()
+                    val containerClassName = classDec.qualifiedName?.asString()
+                    logger.error("prop $propName at class $containerClassName is primitive so can not nullable")
+                }
+            }
+    }
+
+    private fun verifySealedClass(classDec: KSClassDeclaration) {
+        // nếu class này là sealed class
+        if (classDec.modifiers.contains(Modifier.SEALED)) {
+            val allDirectChild = classDec.getSealedSubclasses()
+            val childNotSerializable = allDirectChild
+                .filter {
+                    !it.getAllAnnotationName().contains(MSerialization::class.java.name)
+                }
+                .map { it.qualifiedName!!.asString() }
+                .toList()
+            if (childNotSerializable.isNotEmpty()) {
+                logger.error("child/children $childNotSerializable of ${classDec.qualifiedName?.asString()} is not serializable")
+            }
+        }
     }
 
     //hỗ trợ map(MutableMap/Map ->HashMap, TreeMap)
@@ -129,25 +179,59 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
             .forEach { (prop, type) ->
                 // check class của khai báo
+
                 val classDecOfProp = type.declaration as KSClassDeclaration
                 val propName = prop.simpleName.asString()
                 val containerClassName = clazz.qualifiedName?.asString()
                 val classNameOfProp = classDecOfProp.qualifiedName!!.asString()
-                logger.warn("prop $propName at $containerClassName is $classNameOfProp")
 
-                if (!setClassGenericsAccept.contains(classNameOfProp)) {
-                    logger.error("prop $propName at class $containerClassName not serializable")
+                if (type.isMarkedNullable) {
+                    logger.error("generic prop $propName at $containerClassName can not be null")
                 }
+
+                val typeGenericTypeSupport = fullNameToTypeGenericSupport[classNameOfProp]
+                    ?: throw IllegalArgumentException("prop $propName at class $containerClassName not serializable")
 
 
                 // check tham số kiểu của khai báo
                 //classDecOfProp.as
 
-                val cc = type.arguments.forEach {
-                    it.type.resolve()
-                }
-                logger.warn("prop $propName at class $containerClassName had ${type.arguments}")
 
+                fun KSType.isPrimitiveOrSerializable(): Boolean {
+                    return if (isPrimitive()) {
+                        true
+                    } else {
+                        val classDec = declaration as KSClassDeclaration
+                        classDec.getAllAnnotationName().contains(MSerialization::class.java.name)
+                    }
+                }
+
+                val allElementValid: Boolean = when (typeGenericTypeSupport) {
+                    GenericTypeSupport.LIST -> {
+                        val classOfElement = type.arguments[0].type!!.resolve()
+                        classOfElement.isPrimitiveOrSerializable()
+                    }
+
+                    GenericTypeSupport.MAP -> {
+                        val keyClass = type.arguments[0].type!!.resolve()
+                        val valueClass = type.arguments[1].type!!.resolve()
+
+
+                        if (keyClass.isMarkedNullable) {
+                            logger.error("map prop $propName at $containerClassName had key nullable")
+                        }
+
+                        if (valueClass.isMarkedNullable) {
+                            logger.error("map prop $propName at $containerClassName had value nullable")
+                        }
+
+                        keyClass.isPrimitive() && valueClass.isPrimitiveOrSerializable()
+
+                    }
+                }
+                if (!allElementValid) {
+                    logger.error("prop $propName at class $containerClassName had element not serializable")
+                }
             }
     }
 
@@ -160,10 +244,13 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             ?: throw IllegalArgumentException("class $className not had primary constructor")
 
         val allParams = primaryConstructor.parameters
-        val allParamIsProp = allParams.all {
-            it.isVal || it.isVar
+        if (allParams.isNotEmpty()) {
+            val allParamIsProp = allParams.all {
+                it.isVal || it.isVar
+            }
+            if (!allParamIsProp) throw IllegalArgumentException("class $className at primary constructor had a param not a property")
         }
-        if (!allParamIsProp) throw IllegalArgumentException("class $className at primary constructor had a param not a property")
+
     }
 
     // tất cả các prop(không có type param) phải là primitive hoặc là serializable hoặc là có MTransient
@@ -189,18 +276,14 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
             //lọc những thằng có MTransient
             .filter { (prop, _, _) ->
-                val allAnnoThisProps = prop.annotations
-                    .map { a ->
-                        a.annotationType
-                            .resolve()
-                            .declaration
-                            .qualifiedName!!.asString()
-                    }.toSet()
-                !allAnnoThisProps.contains(MTransient::class.java.name)
+                !prop.getAllAnnotationName().contains(MTransient::class.java.name)
             }
             .forEach { (prop, _, classDec) ->
                 // check class khai báo phải có tag MSerializable ở class khai báo
                 val allAnnoName = classDec.getAllAnnotationName()
+
+                val propName = prop.simpleName.asString()
+                val clazzName = clazz.qualifiedName?.asString()
 
                 if (allAnnoName.isNotEmpty()) {
                     //val valid = allAnnoName.contains("m_serialization.annotations.MSerialization")
@@ -208,10 +291,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     if (valid) {
                         //logger.warn("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} valid")
                     } else {
-                        logger.error("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} is not serializable")
+                        logger.error("prop $propName at $clazzName is not serializable")
                     }
                 } else {
-                    logger.error("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} is not serializable")
+                    logger.error("prop $propName at $clazzName is not serializable")
                 }
             }
     }
