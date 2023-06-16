@@ -8,6 +8,9 @@ import kotlin.concurrent.thread
 sealed class Container(
     open val s: Student,
     open val o: Int,
+
+
+
     @MTransient()
     var k: Thread = thread { },
     @MTransient

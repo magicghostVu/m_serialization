@@ -7,6 +7,20 @@ import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.PrimitiveType.Companion.isPrimitive
+import m_serialization.utils.GraphUtils
+import m_serialization.utils.KSClassDecUtils
+import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
+import org.jgrapht.graph.DefaultDirectedGraph
+import org.jgrapht.graph.DefaultEdge
+import org.jgrapht.nio.Attribute
+import org.jgrapht.nio.DefaultAttribute
+import org.jgrapht.nio.dot.DOTExporter
+import java.io.File
+import java.io.StringWriter
+import java.io.Writer
+import java.nio.charset.StandardCharsets
+import java.nio.file.Files
+
 
 enum class GenericTypeSupport {
     LIST,
@@ -17,6 +31,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     private val logger = env.logger
 
+    init {
+        KSClassDecUtils.logger = logger
+    }
 
     // tạm thời chưa hỗ trợ object làm key
     // tất cả các key phải là primitive
@@ -83,13 +100,158 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
             .forEach { _ -> }
 
+
+        // tạo graph
+
+        val graph = DefaultDirectedGraph<String, DefaultEdge>(DefaultEdge::class.java)
+        // add tất cả các class
+        setAllClass.forEach {
+            graph.addVertex(it.qualifiedName!!.asString())
+        }
+
+
+        setAllClass
+            .asSequence()
+            .map {
+                Pair(it.qualifiedName!!.asString(), it)
+            }.forEach { (name, classDec) ->
+                val allDependencies = classDec.getAllDirectDependencies()
+
+                val allName = allDependencies.map {
+                    it.qualifiedName!!.asString()
+                }
+
+                //logger.warn("all dep of $name is $allName")
+
+                allDependencies.forEach {
+                    graph.addEdge(name, it.qualifiedName!!.asString())
+                }
+            }
+
+        val exporter: DOTExporter<String, DefaultEdge> = DOTExporter<String, DefaultEdge>()
+
+        exporter.setVertexAttributeProvider {
+            val map: MutableMap<String, Attribute> = LinkedHashMap<String, Attribute>()
+            map["label"] = DefaultAttribute.createAttribute(it)
+            map
+        }
+
+        val writer: Writer = StringWriter()
+        exporter.exportGraph(graph, writer)
+
+
+        val graphStr = writer.toString()
+
+        val file = File(System.getProperty("user.dir") + "/relation.gv")
+        if (file.exists()) {
+            file.delete()
+        }
+
+        Files.write(file.toPath(), graphStr.toByteArray(StandardCharsets.UTF_8))
+
+        logger.warn("class relationship write to ${file.absolutePath}")
+
+
+        val allCycle = GraphUtils.findCycle(graph)
+
+        if (allCycle.isNotEmpty()) {
+            logger.error("cyclic reference detected $allCycle")
+        }
+
+        // check
+
         // gen code
 
         // gen kt
         // khi gen đến code class nào
-        // thì mặc định các class dependencies của nó đã được gen rồi
+        // thì coi như các class dependencies của nó đã được gen rồi
 
         return emptyList()
+    }
+
+
+    private fun KSClassDeclaration.getAllDirectDependencies(): List<KSClassDeclaration> {
+        val result = getAllProperties()
+            .filter {
+                it.hasBackingField
+            }
+            // lọc transient
+            .filter {
+                !it.getAllAnnotationName().contains(MTransient::class.java.name)
+            }
+            // lọc primitive
+            .filter {
+                val type = it.type.resolve()
+                !type.isPrimitive()
+            }
+            // lọc những thằng list primitive và map primitive
+            .filter {
+                val type = it.type.resolve()
+                val allTypeParam = type.arguments
+                if (allTypeParam.isEmpty()) {
+                    true
+                } else {
+                    val r = when (allTypeParam.size) {
+                        1 -> { // list
+                            val listElement = allTypeParam[0].type
+                            !listElement!!.resolve().isPrimitive()
+                        }
+
+                        2 -> { // map
+                            val valueElementType = allTypeParam[1].type
+                            !valueElementType!!.resolve().isPrimitive()
+                        }
+
+                        else -> {
+                            throw IllegalArgumentException("impossible, review code")
+                        }
+                    }
+                    //logger.warn("r1 of ${it.simpleName.asString()} at ${qualifiedName?.asString()} is $r")
+                    r
+                }
+            }.map {
+                //map sang class
+                //
+                val type = it.type.resolve()
+                val allTypeParam = type.arguments
+                if (allTypeParam.isEmpty()) {
+                    val classDec = it.type.resolve().declaration as KSClassDeclaration
+                    Pair(it, classDec)
+                } else {
+                    val classDec = when (allTypeParam.size) {
+                        1 -> {
+                            allTypeParam[0].type!!.resolve().declaration as KSClassDeclaration
+                        }
+
+                        2 -> {
+                            allTypeParam[1].type!!.resolve().declaration as KSClassDeclaration
+                        }
+
+                        else -> {
+                            throw IllegalArgumentException("impossible, review code")
+                        }
+                    }
+                    Pair(it, classDec)
+                }
+
+            }
+            .flatMap { (prop, classDec) ->
+                val allModifier = classDec.modifiers
+                if (allModifier.contains(Modifier.SEALED)) {
+                    val ss = classDec.getAllChildRecursive(this, prop.simpleName.asString())
+                    logger.warn(
+                        "context is ${qualifiedName?.asString()}, " +
+                                "prop ${prop.simpleName.asString()}," +
+                                " all child of ${classDec.qualifiedName?.asString()} is ${ss.size}"
+                    )
+                    ss.asSequence()
+                } else {
+                    sequenceOf(classDec)
+                }
+            }.toList()
+
+
+        return result;
     }
 
 
@@ -119,8 +281,25 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     }
 
     private fun verifySealedClass(classDec: KSClassDeclaration) {
-        // nếu class này là sealed class
-        if (classDec.modifiers.contains(Modifier.SEALED)) {
+
+        // không chứa sealed
+        // nếu là open thì không được
+        // nếu là abstract thì không được
+        // nếu là interface thì không được
+
+        val className = classDec.qualifiedName?.asString()
+        if (!classDec.modifiers.contains(Modifier.SEALED)) {
+
+            if (classDec.classKind == ClassKind.INTERFACE) {
+                logger.error("class $className is open interface, can not serialize")
+            } else {
+                val allModifier = classDec.modifiers
+                if (allModifier.contains(Modifier.ABSTRACT) || allModifier.contains(Modifier.OPEN)) {
+                    logger.error("class $className is open, can not serialize")
+                }
+            }
+
+        } else {
             val allDirectChild = classDec.getSealedSubclasses()
             val childNotSerializable = allDirectChild
                 .filter {
@@ -129,7 +308,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 .map { it.qualifiedName!!.asString() }
                 .toList()
             if (childNotSerializable.isNotEmpty()) {
-                logger.error("child/children $childNotSerializable of ${classDec.qualifiedName?.asString()} is not serializable")
+                logger.error("child/children $childNotSerializable of $className is not serializable")
             }
         }
     }
@@ -212,6 +391,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     // tất cả các tham số trong constructor phải là var hoặc val
     private fun verifyClassConstructor(clazz: KSClassDeclaration) {
+
+        if (clazz.classKind == ClassKind.INTERFACE) {
+            return
+        }
+
         val primaryConstructor = clazz.primaryConstructor
         val className = clazz.qualifiedName?.asString()
         primaryConstructor
@@ -276,6 +460,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     // tất cả các prop có MTransient ở constructor của class này phải có giá trị mặc định
     // tất cả các prop transient trong constructor phải được đặt ở cuối -> đơn giản hoá việc gọi constructor lúc gen code
     private fun verifyAllTransientProp(clazz: KSClassDeclaration) {
+
+        if (clazz.classKind == ClassKind.INTERFACE) {
+            return
+        }
+
         val constructor = clazz.primaryConstructor!!
 
         // tại đây tất cả các param đều là prop rồi
