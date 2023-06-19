@@ -1,15 +1,19 @@
 package m_serialization
 
+import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
+import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.PrimitiveType.Companion.isPrimitive
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
+import org.apache.commons.lang3.mutable.MutableShort
 import org.jgrapht.graph.DefaultDirectedGraph
 import org.jgrapht.graph.DefaultEdge
 import org.jgrapht.nio.Attribute
@@ -31,9 +35,8 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     private val logger = env.logger
 
-    init {
-        KSClassDecUtils.logger = logger
-    }
+    private var invoke = false
+
 
     // tạm thời chưa hỗ trợ object làm key
     // tất cả các key phải là primitive
@@ -49,11 +52,19 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
 
     init {
+        KSClassDecUtils.logger = logger
         logger.warn("init ksp logic")
     }
 
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
+
+        if (!invoke) {
+            invoke = true
+        } else {
+            return emptyList()
+        }
+
         val allClassWillProcess = resolver.getSymbolsWithAnnotation(
             MSerialization::class
                 .qualifiedName
@@ -165,6 +176,15 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         // gen kt
         // khi gen đến code class nào
         // thì coi như các class dependencies của nó đã được gen rồi
+
+        // sinh tag
+        val autoTag = MutableShort()
+        //env.codeGenerator.
+        val fileSpec = FileSpec.builder("pack.protocols", "S")
+
+        fileSpec.build().writeTo(env.codeGenerator, Dependencies(true))
+
+
 
         return emptyList()
     }

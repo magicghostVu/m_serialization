@@ -4,7 +4,7 @@ import org.jgrapht.graph.DefaultDirectedGraph
 import org.jgrapht.graph.DefaultEdge
 import java.util.*
 
-object GraphUtils {
+internal object GraphUtils {
     enum class VertexState {
         NOT_VISITED,
         IN_STACK,

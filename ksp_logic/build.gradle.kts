@@ -20,6 +20,11 @@ dependencies {
     // add graph lib
     implementation("org.jgrapht:jgrapht-core:1.5.2")
     implementation("org.jgrapht:jgrapht-io:1.5.2")
+
+    // add kotlin poet
+    runtimeOnly("com.squareup:kotlinpoet:1.13.2")
+    implementation("com.squareup:kotlinpoet-ksp:1.13.2")
+
 }
 
 tasks.test {

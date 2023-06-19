@@ -41,7 +41,6 @@ object VMSerializer {
         buffer.writeInt(p)
     }
 
-    // nếu class này có class cha thì mới sinh ra function này
     fun V.writeToWithTag(buffer: ByteBuf) {
         buffer.writeShort(uniqueTag.toInt())
         writeTo(buffer)
@@ -58,7 +57,6 @@ object VMSerializer {
         return v
     }
 
-    // nếu class này có class cha thì mới sinh ra function này
     fun checkTagRead(buffer: ByteBuf): V {
         val tag = buffer.readShort()
         if (tag != uniqueTag) {

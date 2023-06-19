@@ -20,4 +20,9 @@ object ByteBufUtils {
         readBytes(array)
         return String(array, StandardCharsets.UTF_8)
     }
+
+    fun ByteBuf.writeBool(boolean: Boolean) {
+        val bb: Byte = if (boolean) 1 else 0
+        writeByte(bb.toInt())
+    }
 }
