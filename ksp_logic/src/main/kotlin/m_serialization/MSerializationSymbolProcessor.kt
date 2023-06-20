@@ -6,6 +6,8 @@ import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
 import com.squareup.kotlinpoet.FileSpec
+import com.squareup.kotlinpoet.PropertySpec
+import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
@@ -24,6 +26,7 @@ import java.io.StringWriter
 import java.io.Writer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import kotlin.reflect.KClass
 
 
 enum class GenericTypeSupport {
@@ -74,8 +77,20 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         val setAllClass = allClassWillProcess
             .map { it as KSClassDeclaration }
             .toSet()
+
+
+        val allEnumClass = mutableListOf<KSClassDeclaration>()
+
         setAllClass
             .asSequence()
+            .filter { c ->
+                if (c.classKind != ClassKind.ENUM_CLASS) {
+                    true
+                } else {
+                    allEnumClass.add(c)
+                    false
+                }
+            }
             .map {
 
                 val numTypeParam = it.typeParameters.size
@@ -115,7 +130,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         // tạo graph
 
         val graph = DefaultDirectedGraph<String, DefaultEdge>(DefaultEdge::class.java)
-        // add tất cả các class
+        // add tất cả các class làm đỉnh
         setAllClass.forEach {
             graph.addVertex(it.qualifiedName!!.asString())
         }
@@ -139,10 +154,71 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 }
             }
 
+
+        allEnumClass.forEach {
+
+            val allEntry = it.declarations
+            val listName = allEntry
+                .map { e -> e::class }
+                .toList()
+
+
+            logger.warn("list name is $listName")
+
+
+            //val allChild = it.
+            /*val allName = allChild
+                .map { entry ->
+                    entry.simpleName.asString()
+                }.toList()
+            logger.warn("class ${it.qualifiedName?.asString()} had $allName")*/
+        }
+
+        exportDependenciesGraph(graph)
+        val allCycle = GraphUtils.findCycle(graph)
+        if (allCycle.isNotEmpty()) {
+            logger.error("cyclic reference detected $allCycle")
+        }
+
+        // check
+
+        // gen code
+
+        // gen kt
+        // khi gen đến code class nào
+        // thì coi như các class dependencies của nó đã được gen rồi
+
+        // sinh tag
+        val autoTag = MutableShort()
+        //env.codeGenerator.
+        val fileSpec = FileSpec.builder("pack.protocols", "S")
+            .addType(
+                TypeSpec
+                    .objectBuilder("S")
+                    .addProperty(
+                        PropertySpec
+                            .builder(
+                                "protocolId",
+                                Short::class
+                            )
+                            .initializer("1800")
+                            .build()
+                    )
+                    .build()
+            )
+
+        fileSpec.build().writeTo(env.codeGenerator, Dependencies(true))
+
+
+
+        return emptyList()
+    }
+
+    private fun exportDependenciesGraph(graph: DefaultDirectedGraph<String, DefaultEdge>) {
         val exporter: DOTExporter<String, DefaultEdge> = DOTExporter<String, DefaultEdge>()
 
         exporter.setVertexAttributeProvider {
-            val map: MutableMap<String, Attribute> = LinkedHashMap<String, Attribute>()
+            val map: MutableMap<String, Attribute> = LinkedHashMap()
             map["label"] = DefaultAttribute.createAttribute(it)
             map
         }
@@ -161,34 +237,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         Files.write(file.toPath(), graphStr.toByteArray(StandardCharsets.UTF_8))
 
         logger.warn("class relationship write to ${file.absolutePath}")
-
-
-        val allCycle = GraphUtils.findCycle(graph)
-
-        if (allCycle.isNotEmpty()) {
-            logger.error("cyclic reference detected $allCycle")
-        }
-
-        // check
-
-        // gen code
-
-        // gen kt
-        // khi gen đến code class nào
-        // thì coi như các class dependencies của nó đã được gen rồi
-
-        // sinh tag
-        val autoTag = MutableShort()
-        //env.codeGenerator.
-        val fileSpec = FileSpec.builder("pack.protocols", "S")
-
-        fileSpec.build().writeTo(env.codeGenerator, Dependencies(true))
-
-
-
-        return emptyList()
     }
-
 
     private fun KSClassDeclaration.getAllDirectDependencies(): List<KSClassDeclaration> {
         val result = getAllProperties()
