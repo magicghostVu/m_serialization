@@ -1,4 +1,4 @@
-package m_serialization.data
+package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 

@@ -3,6 +3,7 @@ package m_serialization.utils
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.Modifier
+import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import java.util.*
 
 object KSClassDecUtils {
@@ -12,7 +13,10 @@ object KSClassDecUtils {
 
     lateinit var logger: KSPLogger
 
-    fun KSClassDeclaration.getAllChildRecursive(context: KSClassDeclaration, propName: String): List<KSClassDeclaration> {
+    fun KSClassDeclaration.getAllChildRecursive(
+        context: KSClassDeclaration,
+        propName: String
+    ): List<KSClassDeclaration> {
         //val className = qualifiedName?.asString();
         if (!this.modifiers.contains(Modifier.SEALED)) {
             return emptyList()
@@ -37,6 +41,12 @@ object KSClassDecUtils {
             }
         }
         return result
+    }
+
+    fun KSClassDeclaration.getAllPropMetaData(): Map<String, AbstractPropMetadata> {
+
+
+        return emptyMap()
     }
 
 }

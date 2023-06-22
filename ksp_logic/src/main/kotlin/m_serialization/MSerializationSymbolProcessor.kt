@@ -11,7 +11,7 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
-import m_serialization.data.PrimitiveType.Companion.isPrimitive
+import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
@@ -26,7 +26,6 @@ import java.io.StringWriter
 import java.io.Writer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import kotlin.reflect.KClass
 
 
 enum class GenericTypeSupport {
