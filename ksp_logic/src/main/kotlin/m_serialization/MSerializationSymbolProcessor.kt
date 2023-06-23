@@ -78,17 +78,15 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .toSet()
 
 
-        val allEnumClass = mutableListOf<KSClassDeclaration>()
+        //val allEnumClass = mutableListOf<KSClassDeclaration>()
 
         setAllClass
             .asSequence()
             .filter { c ->
-                if (c.classKind != ClassKind.ENUM_CLASS) {
-                    true
-                } else {
-                    allEnumClass.add(c)
-                    false
+                if (c.classKind == ClassKind.ENUM_CLASS) {
+                    throw IllegalArgumentException("temporary not support enum class ${c.qualifiedName?.asString()}")
                 }
+                true
             }
             .map {
 
@@ -154,7 +152,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
 
 
-        allEnumClass.forEach {
+        /*allEnumClass.forEach {
 
             val allEntry = it.declarations
             val listName = allEntry
@@ -166,12 +164,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
 
             //val allChild = it.
-            /*val allName = allChild
+            *//*val allName = allChild
                 .map { entry ->
                     entry.simpleName.asString()
                 }.toList()
-            logger.warn("class ${it.qualifiedName?.asString()} had $allName")*/
-        }
+            logger.warn("class ${it.qualifiedName?.asString()} had $allName")*//*
+        }*/
 
         exportDependenciesGraph(graph)
         val allCycle = GraphUtils.findCycle(graph)

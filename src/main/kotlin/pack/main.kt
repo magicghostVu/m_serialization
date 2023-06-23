@@ -10,4 +10,13 @@ fun main() {
     println("class is ${MutableList::class.java}")
     S
 
+
+}
+
+fun ccc.A() {
+
+}
+
+enum class ccc {
+
 }

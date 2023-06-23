@@ -10,23 +10,33 @@ sealed class ListPropMetaData : AbstractPropMetadata() {
 class ListPrimitivePropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
-    val type: PrimitiveType
+    private val type: PrimitiveType
 ) : ListPropMetaData() {
 
 
     override fun getWriteStatement(): String {
-        TODO("Not yet implemented")
+        val valName = "buffer";// ByteBuf
+        val r = String.format(
+            """%s.writeInt(%s.size)// list size
+                for (e in %s) {
+                    ${type.writeToBufferExpression(valName, "e")}
+                }
+            """.trimIndent(),
+            valName,
+            name
+        )
+        return r
     }
 
     override fun addImport(): List<String> {
-        TODO("Not yet implemented")
+        return PrimitiveType.addImportExpression(type)
     }
 }
 
 class ListObjectPropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
-    val targetClass: KSClassDeclaration
+    val elementClass: KSClassDeclaration
 ) : ListPropMetaData() {
 
 
