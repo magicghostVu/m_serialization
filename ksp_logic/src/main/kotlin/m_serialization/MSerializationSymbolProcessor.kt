@@ -305,11 +305,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 val allModifier = classDec.modifiers
                 if (allModifier.contains(Modifier.SEALED)) {
                     val ss = classDec.getAllChildRecursive(this, prop.simpleName.asString())
-                    logger.warn(
+                    /*logger.warn(
                         "context is ${qualifiedName?.asString()}, " +
                                 "prop ${prop.simpleName.asString()}," +
                                 " all child of ${classDec.qualifiedName?.asString()} is ${ss.size}"
-                    )
+                    )*/
                     ss.asSequence()
                 } else {
                     sequenceOf(classDec)

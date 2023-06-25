@@ -9,5 +9,12 @@ sealed class AbstractPropMetadata() {
 
     abstract fun getWriteStatement(): String
     abstract fun addImport(): List<String>
+
+    companion object {
+
+        //suffix name of object will be generated
+        // eg: AClassMSerializer, AClass is target class
+        val serializerObjectNameSuffix = "MSerializer";
+    }
 }
 

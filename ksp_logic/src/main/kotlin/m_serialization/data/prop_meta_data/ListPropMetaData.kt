@@ -33,6 +33,7 @@ class ListPrimitivePropMetaData(
     }
 }
 
+// if element class is sealed so insert unique tag otherwise not
 class ListObjectPropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
