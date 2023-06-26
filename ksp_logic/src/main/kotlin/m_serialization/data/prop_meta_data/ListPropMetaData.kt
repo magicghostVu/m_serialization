@@ -7,6 +7,12 @@ sealed class ListPropMetaData : AbstractPropMetadata() {
 
 }
 
+enum class ListTypeAtSource{
+    List,
+    MutableList,
+    LinkedList
+}
+
 class ListPrimitivePropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,

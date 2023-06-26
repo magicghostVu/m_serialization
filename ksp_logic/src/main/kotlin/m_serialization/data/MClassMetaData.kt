@@ -10,4 +10,17 @@ class MClassMetaData(
     val otherProps: List<AbstractPropMetadata>,
     val classDec: KSClassDeclaration
 ) {
+    companion object {
+        /*fun fromClassDeclaration(classDec: KSClassDeclaration): MClassMetaData {
+            val primaryConstructor = classDec.primaryConstructor!!
+
+            val allProp = classDec.getAllProperties()
+                .filter {
+                    it.geta
+                }
+
+            TODO();
+        }*/
+    }
+
 }

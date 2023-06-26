@@ -1,5 +1,6 @@
 package m_serialization.data.prop_meta_data
 
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 
 sealed class AbstractPropMetadata() {
@@ -14,7 +15,11 @@ sealed class AbstractPropMetadata() {
 
         //suffix name of object will be generated
         // eg: AClassMSerializer, AClass is target class
-        val serializerObjectNameSuffix = "MSerializer";
+        const val serializerObjectNameSuffix = "MSerializer";
+
+        fun getSerializerObjectName(classDec: KSClassDeclaration): String {
+            return classDec.simpleName.asString() + serializerObjectNameSuffix
+        }
     }
 }
 

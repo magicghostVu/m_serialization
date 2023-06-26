@@ -15,7 +15,7 @@ class ObjectPropMetaData(
     override fun getWriteStatement(): String {
         val bufferVarName = "buffer"
         return if (classDec.modifiers.contains(Modifier.SEALED)) {
-            val serializerObjectName = classDec.simpleName.asString() + serializerObjectNameSuffix
+            val serializerObjectName = getSerializerObjectName(classDec)
             val format = "%s.writeToAbstract(%s,%s)"
             String.format(format, name, serializerObjectName, bufferVarName)
         } else {
@@ -26,15 +26,16 @@ class ObjectPropMetaData(
 
     // import object serializer of this class
     override fun addImport(): List<String> {
+        val packageName = classDec.packageName.asString()
         // import object
         return if (classDec.modifiers.contains(Modifier.SEALED)) {
-            val packageName = classDec.packageName.asString()
-
             listOf(
-
+                packageName + "." + getSerializerObjectName(classDec)
             )
         } else {// import object and method
-            listOf()
+            listOf(
+                packageName + "." + getSerializerObjectName(classDec) + "." + "writeTo"
+            )
         }
     }
 }

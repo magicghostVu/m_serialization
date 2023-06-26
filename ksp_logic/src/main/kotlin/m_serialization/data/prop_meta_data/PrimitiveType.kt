@@ -83,14 +83,18 @@ enum class PrimitiveType(val className: String) {
     abstract fun writeToBufferExpression(bufferVarName: String, varName: String): String;
 
     companion object {
-        private val allPrimitiveName = PrimitiveType
+        private val allPrimitiveNameToPrimitiveType = PrimitiveType
             .values()
             .asSequence()
-            .map { it.className }
-            .toSet()
+            .associateBy { it.className }
+
 
         fun KSType.isPrimitive(): Boolean {
-            return allPrimitiveName.contains(declaration.qualifiedName!!.asString())
+            return allPrimitiveNameToPrimitiveType.containsKey(declaration.qualifiedName!!.asString())
+        }
+
+        fun KSType.toPrimitiveType(): PrimitiveType {
+            return allPrimitiveNameToPrimitiveType.getValue(declaration.qualifiedName!!.asString())
         }
 
         fun addImportExpression(type: PrimitiveType): List<String> {

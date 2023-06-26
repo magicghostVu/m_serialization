@@ -14,6 +14,7 @@ import m_serialization.annotations.MTransient
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
+import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
 import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
 import org.apache.commons.lang3.mutable.MutableShort
 import org.jgrapht.graph.DefaultDirectedGraph
@@ -188,6 +189,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         // sinh tag
         val autoTag = MutableShort()
         //env.codeGenerator.
+
+
+        setAllClass.asSequence().map {
+
+        }
+
         val fileSpec = FileSpec.builder("pack.protocols", "S")
             .addType(
                 TypeSpec
@@ -591,33 +598,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     }
 
-    private fun KSPropertyDeclaration.getAllAnnotationName(): Set<String> {
-        return annotations
-            .map { anno ->
-                anno.annotationType
-                    .resolve()
-                    .declaration
-                    .qualifiedName
-            }
-            .filterNotNull()
-            .map {
-                it.asString()
-            }.toSet()
-    }
 
-    private fun KSClassDeclaration.getAllAnnotationName(): Set<String> {
-        return annotations
-            .map { anno ->
-                anno.annotationType
-                    .resolve()
-                    .declaration
-                    .qualifiedName
-            }
-            .filterNotNull()
-            .map {
-                it.asString()
-            }.toSet()
-    }
 
 
 }

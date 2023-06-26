@@ -1,19 +1,18 @@
 package pack.protocols
 
 import io.netty.buffer.ByteBuf
-import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.utils.ByteBufUtils.readString
 import m_serialization.utils.ByteBufUtils.writeString
 
 
-@MSerialization("sss")
+
 sealed class Student() {
     abstract val age: Int
     abstract val name: String
 }
 
-@MSerialization
+
 class V(
     val k: String,
     override val age: Int,
@@ -66,7 +65,7 @@ object VMSerializer {
     }
 }
 
-@MSerialization
+
 class KK(
     val oo: String,
     override val name: String,

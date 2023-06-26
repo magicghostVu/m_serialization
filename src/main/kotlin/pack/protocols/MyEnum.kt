@@ -1,8 +1,7 @@
 package pack.protocols
 
-import m_serialization.annotations.MSerialization
 
-//@MSerialization
+
 enum class MyEnum {
     E1,
     E2;
