@@ -120,15 +120,24 @@ object KSClassDecUtils {
         return emptyMap()
     }
 
-    private fun processListProp(propDec: KSPropertyDeclaration, type: KSType): ListPropMetaData {
+    private fun processListProp(propDec: KSPropertyDeclaration, listType: KSType): ListPropMetaData {
+        val elementType = listType.arguments[0].type!!.resolve()
+        return if (elementType.isPrimitive()) {
+            ListPrimitivePropMetaData(propDec.simpleName.asString(), propDec, elementType.toPrimitiveType())
+        } else {
+            ListObjectPropMetaData(
+                propDec.simpleName.asString(),
+                propDec,
+                elementType.declaration as KSClassDeclaration
+            )
+        }
+    }
+
+    private fun processMapProp(propDec: KSPropertyDeclaration, mapType: KSType): MapPropMetaData {
         TODO()
     }
 
-    private fun processMapProp(propDec: KSPropertyDeclaration, type: KSType): MapPropMetaData {
-        TODO()
-    }
-
-    private fun processObjectProp(propDec: KSPropertyDeclaration, type: KSType): ObjectPropMetaData {
+    private fun processObjectProp(propDec: KSPropertyDeclaration, objectType: KSType): ObjectPropMetaData {
         TODO()
     }
 

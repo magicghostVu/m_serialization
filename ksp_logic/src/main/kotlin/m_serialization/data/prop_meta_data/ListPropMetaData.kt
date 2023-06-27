@@ -8,7 +8,7 @@ sealed class ListPropMetaData : AbstractPropMetadata() {
 }
 
 enum class ListTypeAtSource{
-    List,
+    List,// immutable list
     MutableList,
     LinkedList
 }
