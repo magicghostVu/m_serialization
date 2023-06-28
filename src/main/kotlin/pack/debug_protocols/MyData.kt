@@ -14,4 +14,19 @@ class MyData(val a: Int, val b: Int, val listInt: List<Long>, val listC: List<C>
 }
 
 @MSerialization
-class C(val k: Int)
+class C(val k: Int, val b: B)
+
+@MSerialization
+sealed class B(open val c: Int)
+
+@MSerialization
+class B1(override val c: Int) : B(c)
+
+@MSerialization
+class B2(override val c: Int, val g: Long) : B(c)
+
+@MSerialization
+sealed class B3(override val c: Int) : B(c)
+
+@MSerialization
+class B4(override val c: Int) : B3(c)
