@@ -2,6 +2,8 @@ package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
+import m_serialization.utils.KSClassDecUtils.importSerializer
 
 sealed class MapPropMetaData() : AbstractPropMetadata() {
     abstract val keyType: PrimitiveType

@@ -11,6 +11,8 @@ import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
+import m_serialization.data.MClassMetaData
+import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
@@ -94,7 +96,8 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
                 val numTypeParam = it.typeParameters.size
                 if (numTypeParam > 0) {
-                    logger.error("class ${it.qualifiedName?.asString()} had type param, can not serializable")
+                    //logger.error("class ${it.qualifiedName?.asString()} had type param, can not serializable")
+                    throwErr("class ${it.qualifiedName?.asString()} had type param, can not serializable")
                 }
 
                 it
@@ -169,7 +172,8 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         exportDependenciesGraph(graph)
         val allCycle = GraphUtils.findCycle(graph)
         if (allCycle.isNotEmpty()) {
-            logger.error("cyclic reference detected $allCycle")
+            //logger.error("cyclic reference detected $allCycle")
+            throwErr("cyclic reference detected $allCycle")
         }
 
         // check
@@ -189,13 +193,39 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .asSequence()
             .map {
                 Pair(it, it.getAllPropMetaData())
-            }.forEach {
+            }.map {
                 val (classDec, allPropMeta) = it
-                val name = classDec.qualifiedName!!.asString()
-                logger.warn("class $name had prop ${allPropMeta.values}")
+
+
+                // xử lý constructor
+                val tmpMap = mutableMapOf<String, AbstractPropMetadata>()
+                tmpMap.putAll(allPropMeta)
+
+
+                val constructor = classDec.primaryConstructor
+
+
+                val listPropInConstructor = mutableListOf<AbstractPropMetadata>()
+                val listPropNotInConstructor = mutableListOf<AbstractPropMetadata>()
+
+                constructor!!.parameters.forEach { param ->
+                    val propName = param.name!!.asString()
+                    val propMeteData = tmpMap.remove(propName)
+                    if (propMeteData != null) {
+                        listPropInConstructor.add(propMeteData)
+                    }
+                }
+
+                tmpMap.forEach { (_, prop) ->
+                    listPropNotInConstructor.add(prop)
+                }
+                MClassMetaData(listPropInConstructor, listPropNotInConstructor, it.first)
+            }
+            .forEach {
+                it.genSerializer().writeTo(env.codeGenerator, Dependencies(true))
             }
 
-        val fileSpec = FileSpec.builder("pack.protocols", "S")
+        /*val fileSpec = FileSpec.builder("pack.protocols", "S")
             .addType(
                 TypeSpec
                     .objectBuilder("S")
@@ -211,7 +241,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     .build()
             )
 
-        fileSpec.build().writeTo(env.codeGenerator, Dependencies(true))
+        fileSpec.build().writeTo(env.codeGenerator, Dependencies(true))*/
 
 
 
@@ -348,7 +378,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 if (type.isMarkedNullable) {
                     val propName = prop.simpleName.asString()
                     val containerClassName = classDec.qualifiedName?.asString()
-                    logger.error("prop $propName at class $containerClassName is primitive so can not nullable")
+                    throwErr("prop $propName at class $containerClassName is primitive so can not nullable")
                 }
             }
     }
@@ -364,11 +394,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         if (!classDec.modifiers.contains(Modifier.SEALED)) {
 
             if (classDec.classKind == ClassKind.INTERFACE) {
-                logger.error("class $className is open interface, can not serialize")
+                throwErr("class $className is open interface, can not serialize")
             } else {
                 val allModifier = classDec.modifiers
                 if (allModifier.contains(Modifier.ABSTRACT) || allModifier.contains(Modifier.OPEN)) {
-                    logger.error("class $className is open, can not serialize")
+                    throwErr("class $className is open, can not serialize")
                 }
             }
 
@@ -381,7 +411,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 .map { it.qualifiedName!!.asString() }
                 .toList()
             if (childNotSerializable.isNotEmpty()) {
-                logger.error("child/children $childNotSerializable of $className is not serializable")
+                throwErr("child/children $childNotSerializable of $className is not serializable")
             }
         }
     }
@@ -412,7 +442,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 val classNameOfProp = classDecOfProp.qualifiedName!!.asString()
 
                 if (type.isMarkedNullable) {
-                    logger.error("generic prop $propName at $containerClassName can not be null")
+                    throwErr("generic prop $propName at $containerClassName can not be null")
                 }
 
                 val typeGenericTypeSupport = fullNameToTypeGenericSupport[classNameOfProp]
@@ -444,11 +474,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
 
                         if (keyClass.isMarkedNullable) {
-                            logger.error("map prop $propName at $containerClassName had key nullable")
+                            throwErr("map prop $propName at $containerClassName had key nullable")
                         }
 
                         if (valueClass.isMarkedNullable) {
-                            logger.error("map prop $propName at $containerClassName had value nullable")
+                            throwErr("map prop $propName at $containerClassName had value nullable")
                         }
 
                         keyClass.isPrimitive() && valueClass.isPrimitiveOrSerializable()
@@ -456,7 +486,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     }
                 }
                 if (!allElementValid) {
-                    logger.error("prop $propName at class $containerClassName had element not serializable")
+                    throwErr("prop $propName at class $containerClassName had element not serializable")
                 }
             }
     }
@@ -482,6 +512,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             if (!allParamIsProp) throw IllegalArgumentException("class $className at primary constructor had a param not a property")
         }
 
+    }
+
+    private fun throwErr(msg: String) {
+        logger.error(msg)
+        throw IllegalArgumentException(msg)
     }
 
     // tất cả các prop(không có type param) phải là primitive hoặc là serializable hoặc là có MTransient
@@ -516,16 +551,19 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 val propName = prop.simpleName.asString()
                 val clazzName = clazz.qualifiedName?.asString()
 
+                //logger.warn("verifyAllPropNotGenericsSerializable cc ${classDec.simpleName.asString()}")
+
                 if (allAnnoName.isNotEmpty()) {
                     //val valid = allAnnoName.contains("m_serialization.annotations.MSerialization")
                     val valid = allAnnoName.contains(MSerialization::class.java.name)
                     if (valid) {
                         //logger.warn("prop ${prop.simpleName.asString()} at ${clazz.qualifiedName?.asString()} valid")
                     } else {
-                        logger.error("prop $propName at $clazzName is not serializable")
+                        throwErr("prop $propName at $clazzName is not serializable")
+
                     }
                 } else {
-                    logger.error("prop $propName at $clazzName is not serializable")
+                    throwErr("prop $propName at $clazzName is not serializable")
                 }
             }
     }
@@ -573,7 +611,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
             .all { it.hadDefaultValue }
         if (!allTransientHadDefault) {
-            logger.error("some prop transient at ${clazz.qualifiedName?.asString()} had not default value")
+            throwErr("some prop transient at ${clazz.qualifiedName?.asString()} had not default value")
         }
 
         // check các prop transient phải ở cuối
@@ -592,7 +630,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             val subList = allPropInConstructor.subList(index, allPropInConstructor.size)
             val anyLastNotTransient = subList.any { !it.hadTransient }
             if (anyLastNotTransient) {
-                logger.error("class ${clazz.qualifiedName?.asString()} had some transient properties in constructor not at last position")
+                throwErr("class ${clazz.qualifiedName?.asString()} had some transient properties in constructor not at last position")
             }
         }
 

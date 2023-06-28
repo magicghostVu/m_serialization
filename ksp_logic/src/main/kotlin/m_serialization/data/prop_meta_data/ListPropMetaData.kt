@@ -2,6 +2,8 @@ package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
+import m_serialization.utils.KSClassDecUtils.importSerializer
 
 sealed class ListPropMetaData : AbstractPropMetadata() {
 
@@ -21,14 +23,15 @@ class ListPrimitivePropMetaData(
 
 
     override fun getWriteStatement(): String {
-        val valName = "buffer";// ByteBuf
+        val bufferVarName = "buffer";// ByteBuf
         val r = String.format(
             """%s.writeInt(%s.size)// list size
                 for (e in %s) {
-                    ${type.writeToBufferExpression(valName, "e")}
+                    ${type.writeToBufferExpression(bufferVarName, "e")}
                 }
-            """.trimIndent(),
-            valName,
+            """,
+            bufferVarName,
+            name,
             name
         )
         return r
