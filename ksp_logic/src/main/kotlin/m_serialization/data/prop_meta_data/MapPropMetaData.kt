@@ -11,14 +11,25 @@ class MapPrimitiveValueMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     override val keyType: PrimitiveType,
-    val valueType: PrimitiveType
+    private val valueType: PrimitiveType
 ) : MapPropMetaData() {
     override fun getWriteStatement(): String {
-        TODO("Not yet implemented")
+        val bufferVarName = "buffer";
+        val statement = """
+            %s.writeInt(%s.size)
+            %s.forEach{ (k,v) ->
+                ${keyType.writeToBufferExpression(bufferVarName, "k")}
+                ${valueType.writeToBufferExpression(bufferVarName, "v")}
+            }
+        """
+        return String.format(statement, bufferVarName, name, name)
     }
 
     override fun addImport(): List<String> {
-        TODO("Not yet implemented")
+        val r = mutableListOf<String>()
+        r.addAll(PrimitiveType.addImportExpression(keyType))
+        r.addAll(PrimitiveType.addImportExpression(valueType))
+        return r;
     }
 }
 
@@ -26,13 +37,24 @@ class MapObjectValueMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     override val keyType: PrimitiveType,
-    val valueClassDec: KSClassDeclaration
+    private val valueClassDec: KSClassDeclaration
 ) : MapPropMetaData() {
     override fun getWriteStatement(): String {
-        TODO("Not yet implemented")
+        val bufferVarName = "buffer";
+        val statement = """
+            %s.writeInt(%s.size)
+            %s.forEach{ (k,v) ->
+                ${keyType.writeToBufferExpression(bufferVarName, "k")}
+                ${valueClassDec.getWriteObjectStatement(bufferVarName, "v")}
+            }
+        """
+        return String.format(statement, bufferVarName, name, name)
     }
 
     override fun addImport(): List<String> {
-        TODO("Not yet implemented")
+        val list = mutableListOf<String>()
+        list.addAll(PrimitiveType.addImportExpression(keyType))
+        list.addAll(valueClassDec.importSerializer())
+        return list
     }
 }

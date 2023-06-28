@@ -2,7 +2,6 @@ package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
-import com.google.devtools.ksp.symbol.Modifier
 
 class ObjectPropMetaData(
     override val name: String,
@@ -14,28 +13,11 @@ class ObjectPropMetaData(
     // nếu là sealed thì gọi serializer của lớp base
     override fun getWriteStatement(): String {
         val bufferVarName = "buffer"
-        return if (classDec.modifiers.contains(Modifier.SEALED)) {
-            val serializerObjectName = getSerializerObjectName(classDec)
-            val format = "%s.writeToAbstract(%s,%s)"
-            String.format(format, name, serializerObjectName, bufferVarName)
-        } else {
-            val format = "%s.writeTo(%s)";
-            String.format(format, name, bufferVarName)
-        }
+        return classDec.getWriteObjectStatement(bufferVarName, name)
     }
 
     // import object serializer of this class
     override fun addImport(): List<String> {
-        val packageName = classDec.packageName.asString()
-        // import object
-        return if (classDec.modifiers.contains(Modifier.SEALED)) {
-            listOf(
-                packageName + "." + getSerializerObjectName(classDec)
-            )
-        } else {// import object and method
-            listOf(
-                packageName + "." + getSerializerObjectName(classDec) + "." + "writeTo"
-            )
-        }
+        return classDec.importSerializer()
     }
 }

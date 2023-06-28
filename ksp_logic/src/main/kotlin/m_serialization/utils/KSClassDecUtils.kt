@@ -110,14 +110,13 @@ object KSClassDecUtils {
                 }
 
                 else -> {
-                    throw IllegalArgumentException("impossible review code")
+                    throw IllegalArgumentException("impossible, review code")
                 }
 
             }
             tmpMap[propName] = propMetaData
         }
-
-        return emptyMap()
+        return tmpMap
     }
 
     private fun processListProp(propDec: KSPropertyDeclaration, listType: KSType): ListPropMetaData {
@@ -134,11 +133,32 @@ object KSClassDecUtils {
     }
 
     private fun processMapProp(propDec: KSPropertyDeclaration, mapType: KSType): MapPropMetaData {
-        TODO()
+
+        val keyType = mapType.arguments[0].type!!.resolve()
+        val valueType = mapType.arguments[1].type!!.resolve()
+
+        val primitiveKeyType = keyType.toPrimitiveType()
+
+        return if (valueType.isPrimitive()) {
+            MapPrimitiveValueMetaData(
+                propDec.simpleName.asString(),
+                propDec,
+                primitiveKeyType,
+                valueType.toPrimitiveType()
+            )
+        } else {
+            MapObjectValueMetaData(
+                propDec.simpleName.asString(),
+                propDec,
+                primitiveKeyType,
+                valueType.declaration as KSClassDeclaration
+            )
+        }
+
     }
 
     private fun processObjectProp(propDec: KSPropertyDeclaration, objectType: KSType): ObjectPropMetaData {
-        TODO()
+        return ObjectPropMetaData(propDec.simpleName.asString(), propDec, objectType.declaration as KSClassDeclaration)
     }
 
 }

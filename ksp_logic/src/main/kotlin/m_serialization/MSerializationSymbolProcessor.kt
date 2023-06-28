@@ -16,6 +16,7 @@ import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
 import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
+import m_serialization.utils.KSClassDecUtils.getAllPropMetaData
 import org.apache.commons.lang3.mutable.MutableShort
 import org.jgrapht.graph.DefaultDirectedGraph
 import org.jgrapht.graph.DefaultEdge
@@ -140,13 +141,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 Pair(it.qualifiedName!!.asString(), it)
             }.forEach { (name, classDec) ->
                 val allDependencies = classDec.getAllDirectDependencies()
-
-                val allName = allDependencies.map {
-                    it.qualifiedName!!.asString()
-                }
-
-                //logger.warn("all dep of $name is $allName")
-
                 allDependencies.forEach {
                     graph.addEdge(name, it.qualifiedName!!.asString())
                 }
@@ -191,9 +185,15 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         //env.codeGenerator.
 
 
-        setAllClass.asSequence().map {
-
-        }
+        setAllClass
+            .asSequence()
+            .map {
+                Pair(it, it.getAllPropMetaData())
+            }.forEach {
+                val (classDec, allPropMeta) = it
+                val name = classDec.qualifiedName!!.asString()
+                logger.warn("class $name had prop ${allPropMeta.values}")
+            }
 
         val fileSpec = FileSpec.builder("pack.protocols", "S")
             .addType(
@@ -597,8 +597,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         }
 
     }
-
-
 
 
 }

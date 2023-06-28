@@ -7,7 +7,7 @@ sealed class ListPropMetaData : AbstractPropMetadata() {
 
 }
 
-enum class ListTypeAtSource{
+enum class ListTypeAtSource {
     List,// immutable list
     MutableList,
     LinkedList
@@ -48,10 +48,21 @@ class ListObjectPropMetaData(
 
 
     override fun getWriteStatement(): String {
-        TODO("Not yet implemented")
+        val bufferVarName = "buffer";// ByteBuf
+        val r = String.format(
+            """%s.writeInt(%s.size)// list size
+                for (e in %s) {
+                    ${elementClass.getWriteObjectStatement(bufferVarName, "e")}
+                }
+            """,
+            bufferVarName,
+            name,
+            name
+        )
+        return r
     }
 
     override fun addImport(): List<String> {
-        TODO("Not yet implemented")
+        return elementClass.importSerializer()
     }
 }
