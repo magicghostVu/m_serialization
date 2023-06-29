@@ -8,9 +8,9 @@ class PrimitivePropMetaData(
     private val type: PrimitiveType
 ) : AbstractPropMetadata() {
 
-    override fun getWriteStatement(): String {
+    override fun getWriteStatement(objectNameContainThisProp: String): String {
         val valName = "buffer"
-        return type.writeToBufferExpression(valName, name)
+        return type.writeToBufferExpression(valName, "${objectNameContainThisProp}.$name")
     }
 
     override fun addImport(): List<String> {

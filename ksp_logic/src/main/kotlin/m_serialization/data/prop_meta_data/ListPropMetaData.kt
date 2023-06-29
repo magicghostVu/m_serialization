@@ -9,6 +9,7 @@ sealed class ListPropMetaData : AbstractPropMetadata() {
 
 }
 
+// deserialize
 enum class ListTypeAtSource {
     List,// immutable list
     MutableList,
@@ -22,7 +23,7 @@ class ListPrimitivePropMetaData(
 ) : ListPropMetaData() {
 
 
-    override fun getWriteStatement(): String {
+    override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";// ByteBuf
         val r = String.format(
             """%s.writeInt(%s.size)// list size
@@ -31,8 +32,8 @@ class ListPrimitivePropMetaData(
                 }
             """,
             bufferVarName,
-            name,
-            name
+            "${objectNameContainThisProp}.$name",
+            "${objectNameContainThisProp}.$name"
         )
         return r
     }
@@ -50,7 +51,7 @@ class ListObjectPropMetaData(
 ) : ListPropMetaData() {
 
 
-    override fun getWriteStatement(): String {
+    override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";// ByteBuf
         val r = String.format(
             """%s.writeInt(%s.size)// list size
@@ -59,8 +60,8 @@ class ListObjectPropMetaData(
                 }
             """,
             bufferVarName,
-            name,
-            name
+            "${objectNameContainThisProp}.$name",
+            "${objectNameContainThisProp}.$name"
         )
         return r
     }

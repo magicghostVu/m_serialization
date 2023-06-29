@@ -196,7 +196,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }.map {
                 val (classDec, allPropMeta) = it
 
-
                 // xử lý constructor
                 val tmpMap = mutableMapOf<String, AbstractPropMetadata>()
                 tmpMap.putAll(allPropMeta)

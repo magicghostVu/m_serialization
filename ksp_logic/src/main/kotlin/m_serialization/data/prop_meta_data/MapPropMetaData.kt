@@ -15,7 +15,7 @@ class MapPrimitiveValueMetaData(
     override val keyType: PrimitiveType,
     private val valueType: PrimitiveType
 ) : MapPropMetaData() {
-    override fun getWriteStatement(): String {
+    override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
         val statement = """
             %s.writeInt(%s.size)
@@ -24,7 +24,12 @@ class MapPrimitiveValueMetaData(
                 ${valueType.writeToBufferExpression(bufferVarName, "v")}
             }
         """
-        return String.format(statement, bufferVarName, name, name)
+        return String.format(
+            statement,
+            bufferVarName,
+            "${objectNameContainThisProp}.$name",
+            "${objectNameContainThisProp}.$name"
+        )
     }
 
     override fun addImport(): List<String> {
@@ -41,7 +46,7 @@ class MapObjectValueMetaData(
     override val keyType: PrimitiveType,
     private val valueClassDec: KSClassDeclaration
 ) : MapPropMetaData() {
-    override fun getWriteStatement(): String {
+    override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
         val statement = """
             %s.writeInt(%s.size)
@@ -50,7 +55,12 @@ class MapObjectValueMetaData(
                 ${valueClassDec.getWriteObjectStatement(bufferVarName, "v")}
             }
         """
-        return String.format(statement, bufferVarName, name, name)
+        return String.format(
+            statement,
+            bufferVarName,
+            "${objectNameContainThisProp}.$name",
+            "${objectNameContainThisProp}.$name"
+        )
     }
 
     override fun addImport(): List<String> {

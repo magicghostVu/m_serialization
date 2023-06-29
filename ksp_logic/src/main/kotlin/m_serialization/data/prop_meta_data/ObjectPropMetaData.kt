@@ -13,9 +13,9 @@ class ObjectPropMetaData(
 
     // check class khai báo
     // nếu là sealed thì gọi serializer của lớp base
-    override fun getWriteStatement(): String {
+    override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer"
-        return classDec.getWriteObjectStatement(bufferVarName, name)
+        return classDec.getWriteObjectStatement(bufferVarName, "${objectNameContainThisProp}.${name}")
     }
 
     // import object serializer of this class

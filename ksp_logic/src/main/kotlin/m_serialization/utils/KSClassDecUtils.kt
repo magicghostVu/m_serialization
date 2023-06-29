@@ -167,29 +167,51 @@ object KSClassDecUtils {
 
     // chỉ áp dụng cho object
     fun KSClassDeclaration.getWriteObjectStatement(bufferVarName: String, objectVarName: String): String {
-        return if (modifiers.contains(Modifier.SEALED)) {
-            val serializerObjectName = getSerializerObjectName()
-            val format = "%s.writeToAbstract(%s,%s)"
-            String.format(format, serializerObjectName, objectVarName, bufferVarName)
-        } else {
-            val format = "%s.writeTo(%s)";
-            String.format(format, objectVarName, bufferVarName)
-        }
+        val serializerObjectName = getSerializerObjectName()
+        val format = "%s.${getFunctionNameWriteInternal()}(%s,%s)"
+        return String.format(format, serializerObjectName, objectVarName, bufferVarName)
     }
 
     // chỉ áp dụng cho object
     fun KSClassDeclaration.importSerializer(): List<String> {
         val packageName = this.packageName.asString()
-        // import object
-        return if (this.modifiers.contains(Modifier.SEALED)) {
-            listOf(
-                packageName + "." + getSerializerObjectName()
-            )
-        } else {// import object and method
-            listOf(
-                packageName + "." + getSerializerObjectName() + "." + "writeTo"
-            )
-        }
+        return listOf(
+            packageName + "." + getSerializerObjectName()
+        )
     }
+
+
+    // lấy tất cả các con không phải là sealed của một class
+    // sẽ duyệt đệ quy đến cháu, chắt, etc...
+    fun KSClassDeclaration.getAllActualChild(): List<KSClassDeclaration> {
+        val queue = LinkedList<KSClassDeclaration>()
+        val result = mutableSetOf<KSClassDeclaration>()
+        queue.add(this)
+        while (queue.isNotEmpty()) {
+            val current = queue.removeFirst()
+            val allDirectChild = current.getSealedSubclasses().toList()
+            for (child in allDirectChild) {
+                if (child.modifiers.contains(Modifier.SEALED)) {
+                    queue.add(child)
+                } else {
+                    result.add(child)
+                }
+            }
+        }
+        return result.toList()
+    }
+
+    fun KSClassDeclaration.getFunctionNameWriteInternal(): String {
+        return writeToInternal + simpleName.asString()
+    }
+
+
+    // nó sẽ gọi hàm writeToInternal của class đó
+    val writeTo = "writeTo"// người dùng call, và là extension function
+
+
+
+    // xem xét có thêm nối tên class vào để tránh nhầm lẫn
+    private const val writeToInternal = "writeToInternal"
 
 }

@@ -1,15 +1,13 @@
 package m_serialization.data.prop_meta_data
 
-import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
-import com.google.devtools.ksp.symbol.Modifier
 
 sealed class AbstractPropMetadata() {
     abstract val name: String
     abstract val propDec: KSPropertyDeclaration
 
 
-    abstract fun getWriteStatement(): String
+    abstract fun getWriteStatement(objectNameContainThisProp:String): String
     abstract fun addImport(): List<String>
 
     companion object {
