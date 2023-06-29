@@ -1,8 +1,11 @@
-package m_serialization.data
+package m_serialization.data.class_metadata
 
+import com.google.devtools.ksp.processing.CodeGenerator
+import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.*
+import com.squareup.kotlinpoet.ksp.writeTo
 import io.netty.buffer.ByteBuf
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.utils.KSClassDecUtils
@@ -14,14 +17,18 @@ import java.lang.StringBuilder
 
 
 // mỗi class được đánh dấu là m_serialization sẽ sinh ra một object này
-class MClassMetaData(
-    val constructorProps: List<AbstractPropMetadata>,
-    val otherProps: List<AbstractPropMetadata>,
-    val classDec: KSClassDeclaration
-) {
+class KotlinGenClassMetaData(
+    constructorProps: List<AbstractPropMetadata>,
+    otherProps: List<AbstractPropMetadata>,
+    classDec: KSClassDeclaration
+) : ClassMetaData(constructorProps, otherProps, classDec) {
 
 
-    fun genSerializer(): FileSpec {
+    override fun doGenCode(codeGenerator: CodeGenerator) {
+        genSerializer().writeTo(codeGenerator, Dependencies(true))
+    }
+
+    private fun genSerializer(): FileSpec {
 
         val objectName = classDec.getSerializerObjectName()
         val fileBuilder = FileSpec.builder(

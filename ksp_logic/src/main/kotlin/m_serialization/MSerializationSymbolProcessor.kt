@@ -5,13 +5,10 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
-import com.squareup.kotlinpoet.FileSpec
-import com.squareup.kotlinpoet.PropertySpec
-import com.squareup.kotlinpoet.TypeSpec
 import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
-import m_serialization.data.MClassMetaData
+import m_serialization.data.class_metadata.KotlinGenClassMetaData
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
 import m_serialization.utils.GraphUtils
@@ -218,10 +215,18 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 tmpMap.forEach { (_, prop) ->
                     listPropNotInConstructor.add(prop)
                 }
-                MClassMetaData(listPropInConstructor, listPropNotInConstructor, it.first)
+                val kotlinCodeGen = KotlinGenClassMetaData(listPropInConstructor, listPropNotInConstructor, it.first)
+
+
+                //todo: add other code gen here
+                //  c++, gdscript, c#
+                listOf(kotlinCodeGen)
+
             }
             .forEach {
-                it.genSerializer().writeTo(env.codeGenerator, Dependencies(true))
+                it.forEach { metaCodeGen ->
+                    metaCodeGen.doGenCode(env.codeGenerator)
+                }
             }
 
         /*val fileSpec = FileSpec.builder("pack.protocols", "S")
