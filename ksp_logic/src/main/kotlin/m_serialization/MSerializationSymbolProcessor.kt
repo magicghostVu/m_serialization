@@ -1,14 +1,13 @@
 package m_serialization
 
-import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
-import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
+import m_serialization.data.class_metadata.MyCodeGen
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
 import m_serialization.utils.GraphUtils
@@ -218,9 +217,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 val kotlinCodeGen = KotlinGenClassMetaData(listPropInConstructor, listPropNotInConstructor, it.first)
 
 
+                //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
                 //todo: add other code gen here
                 //  c++, gdscript, c#
-                listOf(kotlinCodeGen)
+                listOf(kotlinCodeGen, )
 
             }
             .forEach {

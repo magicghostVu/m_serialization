@@ -25,21 +25,49 @@ class KotlinGenClassMetaData(
 
 
     override fun doGenCode(codeGenerator: CodeGenerator) {
-        genSerializer().writeTo(codeGenerator, Dependencies(true))
-    }
-
-    private fun genSerializer(): FileSpec {
-
         val objectName = classDec.getSerializerObjectName()
         val fileBuilder = FileSpec.builder(
             classDec.packageName.asString(),
             objectName
         )
-        val typeName = ClassName(classDec.packageName.asString(), classDec.simpleName.asString())
+        val className = ClassName(classDec.packageName.asString(), classDec.simpleName.asString())
+        val objectBuilder = TypeSpec.objectBuilder(objectName)
+        val (funcSerialize, allImport) = genFunctionSerializer(className)
+        funcSerialize.forEach {
+            objectBuilder.addFunction(it)
+        }
+        allImport.forEach {
+            fileBuilder.addImport(it, "")
+        }
+
+
+        val (funcDeserializers, allImportDeserializer) = genDeserializer(className)
+        funcDeserializers.forEach {
+            objectBuilder.addFunction(it)
+        }
+
+        allImportDeserializer.forEach {
+            fileBuilder.addImport(it, "")
+        }
+
+
+        fileBuilder.addType(objectBuilder.build())
+        fileBuilder.build().writeTo(codeGenerator, Dependencies(true))
+
+    }
+
+
+    private fun genDeserializer(typeName: TypeName): Pair<List<FunSpec>, Set<String>> {
+
+        TODO()
+    }
+
+
+    private fun genFunctionSerializer(typeName: TypeName): Pair<List<FunSpec>, Set<String>> {
 
         val objectToWriteVarName = "objectToWrite"
 
-        if (!classDec.modifiers.contains(Modifier.SEALED)) {
+        return if (!classDec.modifiers.contains(Modifier.SEALED)) {
             val funcWriteToInternal = FunSpec.builder(classDec.getFunctionNameWriteInternal())
                 .addParameter(
                     ParameterSpec.builder(objectToWriteVarName, typeName).build()
@@ -71,17 +99,8 @@ class KotlinGenClassMetaData(
                 )
 
 
-            allImports.forEach {
-                fileBuilder.addImport(it, "")
-            }
-            fileBuilder.addType(
-                TypeSpec.objectBuilder(objectName)
-                    .addFunction(
-                        funcWriteToInternal.build()
-                    )
-                    .addFunction(funcWriteUserCall.build())
-                    .build()
-            )
+            Pair(listOf(funcWriteToInternal.build(), funcWriteUserCall.build()), allImports)
+
         } else {
 
 
@@ -118,9 +137,6 @@ class KotlinGenClassMetaData(
 
             funWriteInternal.addStatement(whenExpression.toString())
 
-            allImports.forEach {
-                fileBuilder.addImport(it, "")
-            }
 
             val funcWriteTo = FunSpec.builder(KSClassDecUtils.writeTo)
                 .receiver(typeName)
@@ -133,19 +149,10 @@ class KotlinGenClassMetaData(
                 .addStatement("${classDec.getFunctionNameWriteInternal()}($objectToWriteVarName, buffer)")
 
 
-            fileBuilder
-                .addType(
-                    TypeSpec.objectBuilder(objectName)
-                        .addFunction(
-                            funWriteInternal.build()
-                        )
-                        .addFunction(funcWriteTo.build())
-                        .build()
-                )
+            Pair(listOf(funWriteInternal.build(), funcWriteTo.build()), allImports)
         }
-
-        return fileBuilder.build()
     }
+
 
     companion object {
 
