@@ -25,4 +25,9 @@ object ByteBufUtils {
         val bb: Byte = if (boolean) 1 else 0
         writeByte(bb.toInt())
     }
+
+    fun ByteBuf.readBool(): Boolean {
+        val b = readByte()
+        return b == 1.toByte()
+    }
 }

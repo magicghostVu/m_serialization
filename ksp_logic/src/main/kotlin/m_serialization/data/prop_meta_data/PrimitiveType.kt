@@ -14,6 +14,18 @@ enum class PrimitiveType(val className: String) {
                 varName
             )
         }
+
+        override fun readFromBufferExpression(
+            bufferVarName: String,
+            varNameToAssign: String,
+            declareNewVar: Boolean
+        ): String {
+            return if (declareNewVar) {
+                "val $varNameToAssign = ${bufferVarName}.readInt()"
+            } else {
+                "$varNameToAssign = ${bufferVarName}.readInt()"
+            }
+        }
     },
 
     SHORT(Short::class.qualifiedName!!) {
@@ -24,6 +36,18 @@ enum class PrimitiveType(val className: String) {
                 varName
             )
         }
+
+        override fun readFromBufferExpression(
+            bufferVarName: String,
+            varNameToAssign: String,
+            declareNewVar: Boolean
+        ): String {
+            return if (declareNewVar) {
+                "val $varNameToAssign = ${bufferVarName}.readShort()"
+            } else {
+                "$varNameToAssign = ${bufferVarName}.readShort()"
+            }
+        }
     },
     DOUBLE(Double::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -32,6 +56,18 @@ enum class PrimitiveType(val className: String) {
                 bufferVarName,
                 varName
             )
+        }
+
+        override fun readFromBufferExpression(
+            bufferVarName: String,
+            varNameToAssign: String,
+            declareNewVar: Boolean
+        ): String {
+            return if (declareNewVar) {
+                "val $varNameToAssign = ${bufferVarName}.readDouble()"
+            } else {
+                "$varNameToAssign = ${bufferVarName}.readDouble()"
+            }
         }
     },
     BYTE(Byte::class.qualifiedName!!) {
@@ -42,6 +78,18 @@ enum class PrimitiveType(val className: String) {
                 varName
             )
         }
+
+        override fun readFromBufferExpression(
+            bufferVarName: String,
+            varNameToAssign: String,
+            declareNewVar: Boolean
+        ): String {
+            return if (declareNewVar) {
+                "val $varNameToAssign = ${bufferVarName}.readByte()"
+            } else {
+                "$varNameToAssign = ${bufferVarName}.readByte()"
+            }
+        }
     },
     BOOL(Boolean::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -50,6 +98,15 @@ enum class PrimitiveType(val className: String) {
                 bufferVarName,
                 varName
             )
+        }
+
+        override fun readFromBufferExpression(
+            bufferVarName: String,
+            varNameToAssign: String,
+            declareNewVar: Boolean
+        ): String {
+            return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readBool()"
+            else "$varNameToAssign = ${bufferVarName}.readBool()"
         }
     },
     FLOAT(Float::class.qualifiedName!!) {
@@ -60,6 +117,15 @@ enum class PrimitiveType(val className: String) {
                 varName
             )
         }
+
+        override fun readFromBufferExpression(
+            bufferVarName: String,
+            varNameToAssign: String,
+            declareNewVar: Boolean
+        ): String {
+            return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readFloat()"
+            else "$varNameToAssign = ${bufferVarName}.readFloat()"
+        }
     },
     LONG(Long::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -68,6 +134,15 @@ enum class PrimitiveType(val className: String) {
                 bufferVarName,
                 varName
             )
+        }
+
+        override fun readFromBufferExpression(
+            bufferVarName: String,
+            varNameToAssign: String,
+            declareNewVar: Boolean
+        ): String {
+            return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readLong()"
+            else "$varNameToAssign = ${bufferVarName}.readLong()"
         }
     },
     STRING(String::class.qualifiedName!!) {
@@ -78,11 +153,44 @@ enum class PrimitiveType(val className: String) {
                 varName
             )
         }
+
+        override fun readFromBufferExpression(
+            bufferVarName: String,
+            varNameToAssign: String,
+            declareNewVar: Boolean
+        ): String {
+            return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readString()"
+            else "$varNameToAssign = ${bufferVarName}.readString()"
+        }
     };
 
     abstract fun writeToBufferExpression(bufferVarName: String, varName: String): String;
 
+
+    // return kiểu như readInt(), readString()
+    // các phép tạo biến gán bằng sẽ do người dùng bên kia viết
+    abstract fun readFromBufferExpression(
+        bufferVarName: String,
+        varNameToAssign: String,
+        declareNewVar: Boolean
+    ): String
+
+
     companion object {
+
+        fun simpleName(primitiveType: PrimitiveType): String {
+            return when (primitiveType) {
+                INT -> "Int"
+                SHORT -> "Short"
+                DOUBLE -> "Double"
+                BYTE -> "Byte"
+                BOOL -> "Boolean"
+                FLOAT -> "Float"
+                LONG -> "Long"
+                STRING -> "String"
+            }
+        }
+
         private val allPrimitiveNameToPrimitiveType = PrimitiveType
             .values()
             .asSequence()
@@ -97,7 +205,7 @@ enum class PrimitiveType(val className: String) {
             return allPrimitiveNameToPrimitiveType.getValue(declaration.qualifiedName!!.asString())
         }
 
-        fun addImportExpression(type: PrimitiveType): List<String> {
+        fun addImportExpressionForWrite(type: PrimitiveType): List<String> {
             val res: List<String> = when (type) {
                 INT -> emptyList()
                 SHORT -> emptyList()
@@ -114,6 +222,29 @@ enum class PrimitiveType(val className: String) {
                 STRING -> {
                     listOf(
                         "m_serialization.utils.ByteBufUtils.writeString"
+                    )
+                }
+            }
+            return res
+        }
+
+        fun addImportExpressionForRead(type: PrimitiveType): List<String> {
+            val res: List<String> = when (type) {
+                INT -> emptyList()
+                SHORT -> emptyList()
+                DOUBLE -> emptyList()
+                BYTE -> emptyList()
+                BOOL -> {
+                    listOf(
+                        "m_serialization.utils.ByteBufUtils.readBool"
+                    )
+                }
+
+                FLOAT -> emptyList()
+                LONG -> emptyList()
+                STRING -> {
+                    listOf(
+                        "m_serialization.utils.ByteBufUtils.readString"
                     )
                 }
             }

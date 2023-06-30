@@ -2,8 +2,10 @@ package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
+import java.lang.StringBuilder
 
 sealed class ListPropMetaData : AbstractPropMetadata() {
 
@@ -38,8 +40,49 @@ class ListPrimitivePropMetaData(
         return r
     }
 
-    override fun addImport(): List<String> {
-        return PrimitiveType.addImportExpression(type)
+    override fun addImportForWrite(): List<String> {
+        return PrimitiveType.addImportExpressionForWrite(type)
+    }
+
+    override fun getReadStatement(
+        bufferVarName: String,
+        varNameToAssign: String,
+        declareNewVar: Boolean
+    ): String {
+        val readStatement = StringBuilder()
+
+        val sizeVarName = "size${varNameToAssign}"
+
+
+        val typeParamsForCreateList =
+            (propDec.type.resolve().arguments[0].type!!.resolve().declaration as KSClassDeclaration).simpleName.asString()
+
+        val listTmpName = "list$varNameToAssign"
+
+        readStatement.append("val $sizeVarName = ${bufferVarName}.readInt()\n")
+
+        // todo: construct lại đúng loại list ban đầu
+        readStatement.append("val $listTmpName = mutableListOf<$typeParamsForCreateList>()\n")
+        readStatement.append(
+            """
+            repeat($sizeVarName){
+            ${type.readFromBufferExpression(bufferVarName, "e", true)}
+            ${listTmpName}.add(e)
+        }
+        """
+        )
+
+        val assignExpression = if (declareNewVar) {
+            "val $varNameToAssign = $listTmpName\n"
+        } else {
+            "$varNameToAssign = $listTmpName\n"
+        }
+        readStatement.append(assignExpression)
+        return readStatement.toString()
+    }
+
+    override fun addImportForRead(): List<String> {
+        return PrimitiveType.addImportExpressionForRead(type)
     }
 }
 
@@ -66,7 +109,48 @@ class ListObjectPropMetaData(
         return r
     }
 
-    override fun addImport(): List<String> {
+    override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
+        val readStatement = StringBuilder()
+        val sizeVarName = "size${varNameToAssign}"
+        val typeParamsForCreateList =
+            (propDec.type.resolve().arguments[0].type!!.resolve().declaration as KSClassDeclaration).simpleName.asString()
+
+        val listTmpName = "list$varNameToAssign"
+
+        readStatement.append("val $sizeVarName = ${bufferVarName}.readInt()\n")
+
+        // todo: construct lại đúng loại list ban đầu
+
+        // lấy serializer và read
+        val objectNameToCallRead = elementClass.getSerializerObjectName()
+
+        readStatement.append("val $listTmpName = mutableListOf<$typeParamsForCreateList>()\n")
+        readStatement.append(
+            """
+            repeat($sizeVarName){
+            val e = ${objectNameToCallRead}.$readFromFuncName($bufferVarName)
+            ${listTmpName}.add(e)
+        }
+        """
+        )
+
+        val assignExpression = if (declareNewVar) {
+            "val $varNameToAssign = $listTmpName\n"
+        } else {
+            "$varNameToAssign = $listTmpName\n"
+        }
+        readStatement.append(assignExpression)
+        return readStatement.toString()
+    }
+
+    override fun addImportForRead(): List<String> {
+        val packageName = elementClass.packageName.asString()
+        return listOf(
+            "${packageName}.${elementClass.getSerializerObjectName()}"
+        )
+    }
+
+    override fun addImportForWrite(): List<String> {
         return elementClass.importSerializer()
     }
 }

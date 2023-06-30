@@ -13,7 +13,15 @@ class PrimitivePropMetaData(
         return type.writeToBufferExpression(valName, "${objectNameContainThisProp}.$name")
     }
 
-    override fun addImport(): List<String> {
-        return PrimitiveType.addImportExpression(type)
+    override fun addImportForWrite(): List<String> {
+        return PrimitiveType.addImportExpressionForWrite(type)
+    }
+
+    override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
+        return type.readFromBufferExpression(bufferVarName, varNameToAssign, declareNewVar)
+    }
+
+    override fun addImportForRead(): List<String> {
+        return PrimitiveType.addImportExpressionForRead(type)
     }
 }

@@ -34,6 +34,15 @@ class KotlinGenClassMetaData(
         )
         val className = ClassName(classDec.packageName.asString(), classDec.simpleName.asString())
         val objectBuilder = TypeSpec.objectBuilder(objectName)
+
+
+        objectBuilder.addProperty(
+            PropertySpec.builder("uniqueTag", Short::class.java)
+                .initializer("$protocolUniqueId")
+                .build()
+        )
+
+
         val (funcSerialize, allImport) = genFunctionSerializer(className)
         funcSerialize.forEach {
             objectBuilder.addFunction(it)
@@ -61,11 +70,43 @@ class KotlinGenClassMetaData(
 
     private fun genDeserializer(typeName: TypeName): Pair<List<FunSpec>, Set<String>> {
 
-        val funcRead = FunSpec.builder("readFrom")
+
+        val funcRead = FunSpec.builder(AbstractPropMetadata.readFromFuncName)
+            .returns(typeName)
+            .addParameter(
+                ParameterSpec.builder("buffer", ByteBuf::class.java).build()
+            )
+
+        return if (classDec.modifiers.contains(Modifier.SEALED)) {
+            funcRead.addStatement("TODO()")
+            Pair(listOf(funcRead.build()), emptySet())
+        } else {
+            val readPropInConstructor = StringBuilder()
+            constructorProps.forEachIndexed { index, propMetaData ->
+                val tmpVarName = "v$index"
+                readPropInConstructor.append(
+                    propMetaData.getReadStatement("buffer", tmpVarName, true)
+                ).append("\n")
+            }
+
+            // call constructor
 
 
 
-        return Pair(emptyList(), emptySet())
+            funcRead.addStatement(readPropInConstructor.toString())
+
+            val allVarInConstructor = List(constructorProps.size) { index ->
+                "v$index"
+            }.joinToString(",")
+
+            val callConstructorExpression = "val result =${classDec.simpleName.asString()}($allVarInConstructor)\n"
+
+            funcRead.addStatement(callConstructorExpression)
+
+            funcRead.addStatement("TODO()")
+            Pair(listOf(funcRead.build()), emptySet())
+        }
+
     }
 
 
@@ -85,11 +126,11 @@ class KotlinGenClassMetaData(
 
             for (prop in constructorProps) {
                 funcWriteToInternal.addStatement(prop.getWriteStatement(objectToWriteVarName))
-                allImports.addAll(prop.addImport())
+                allImports.addAll(prop.addImportForWrite())
             }
             for (prop in otherProps) {
                 funcWriteToInternal.addStatement(prop.getWriteStatement(objectToWriteVarName))
-                allImports.addAll(prop.addImport())
+                allImports.addAll(prop.addImportForWrite())
             }
 
 
@@ -105,10 +146,34 @@ class KotlinGenClassMetaData(
                 )
 
 
-            Pair(listOf(funcWriteToInternal.build(), funcWriteUserCall.build()), allImports)
+            val funcWriteWithTag = FunSpec.builder("${classDec.getFunctionNameWriteInternal()}WithTag")
+            funcWriteWithTag
+                .addParameter(
+                    ParameterSpec.builder(objectToWriteVarName, typeName).build()
+                )
+                .addParameter(
+                    ParameterSpec.builder("buffer", ByteBuf::class.java).build()
+                )
+
+            funcWriteWithTag.addStatement(
+                "buffer.writeShort(uniqueTag.toInt())"
+            )
+            funcWriteWithTag.addStatement(
+                "${classDec.getFunctionNameWriteInternal()}($objectToWriteVarName,buffer)"
+            )
+
+
+
+            Pair(
+                listOf(
+                    funcWriteToInternal.build(),
+                    funcWriteUserCall.build(),
+                    funcWriteWithTag.build()
+                ),
+                allImports
+            )
 
         } else {
-
 
             val funWriteInternal = FunSpec.builder(classDec.getFunctionNameWriteInternal())
                 .addParameter(
@@ -124,6 +189,9 @@ class KotlinGenClassMetaData(
 
             val allImports = mutableSetOf<String>()
 
+            //write tag
+
+
             val whenExpression = StringBuilder()
             whenExpression.append("when($objectToWriteVarName){\n")
 
@@ -132,7 +200,7 @@ class KotlinGenClassMetaData(
                 val format = "is ${it.simpleName.asString()} -> %s\n"
                 val callMethod = String.format(
                     format,
-                    "${it.getSerializerObjectName()}.${it.getFunctionNameWriteInternal()}($objectToWriteVarName, buffer)\n"
+                    "${it.getSerializerObjectName()}.${it.getFunctionNameWriteInternal()}WithTag($objectToWriteVarName, buffer)\n"
                 )
 
                 allImports.addAll(it.importSerializer())

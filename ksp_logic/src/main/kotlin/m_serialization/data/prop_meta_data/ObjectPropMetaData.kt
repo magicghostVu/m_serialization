@@ -2,6 +2,7 @@ package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
 
@@ -19,7 +20,20 @@ class ObjectPropMetaData(
     }
 
     // import object serializer of this class
-    override fun addImport(): List<String> {
+    override fun addImportForWrite(): List<String> {
+        return classDec.importSerializer()
+    }
+
+    override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
+        val serializerObjectName = classDec.getSerializerObjectName()
+        return if (declareNewVar) {
+            "val $varNameToAssign = ${serializerObjectName}.${readFromFuncName}($bufferVarName)"
+        } else {
+            "$varNameToAssign = ${serializerObjectName}.${readFromFuncName}($bufferVarName)"
+        }
+    }
+
+    override fun addImportForRead(): List<String> {
         return classDec.importSerializer()
     }
 }
