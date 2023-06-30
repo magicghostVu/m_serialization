@@ -25,6 +25,8 @@ dependencies {
     runtimeOnly("com.squareup:kotlinpoet:1.13.2")
     implementation("com.squareup:kotlinpoet-ksp:1.13.2")
 
+    implementation(project(":m_serialization_annotation"))
+
 }
 
 tasks.test {
@@ -33,4 +35,16 @@ tasks.test {
 
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "11"
+}
+
+task("copyDependencies", Copy::class) {
+    configurations
+        .compileClasspath
+        .get()
+        .filter {
+            it.extension == "jar"
+        }
+        .forEach {
+            from(it.absolutePath).into("$buildDir/all_ksp_libs")
+        }
 }
