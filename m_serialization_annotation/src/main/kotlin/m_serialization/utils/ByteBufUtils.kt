@@ -3,6 +3,7 @@ package m_serialization.utils
 import io.netty.buffer.ByteBuf
 import java.nio.charset.StandardCharsets
 
+// maybe add some technique from zfoo to compact write for int,short, long
 object ByteBufUtils {
     fun ByteBuf.writeString(str: String) {
         val array = str.toByteArray(StandardCharsets.UTF_8)

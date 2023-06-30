@@ -82,11 +82,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
         setAllClass
             .asSequence()
-            .filter { c ->
+            .map { c ->
                 if (c.classKind == ClassKind.ENUM_CLASS) {
-                    throw IllegalArgumentException("temporary not support enum class ${c.qualifiedName?.asString()}")
+                    //throw IllegalArgumentException("temporary not support enum class ${c.qualifiedName?.asString()}")
+                    throwErr("temporary not support enum class ${c.qualifiedName?.asString()}")
                 }
-                true
+                c
             }
             .map {
 
