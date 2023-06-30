@@ -76,16 +76,33 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
 
             val allImport = mutableSetOf<String>()
 
+            funcRead.addStatement("val className = \"${classDec.qualifiedName!!.asString()}\"")
+
             funcRead.addStatement("val tag = buffer.readShort()\n")
             val whenExpression = StringBuilder()
 
-            whenExpression.append("val result = when(tag){")
+            whenExpression.append("val result = when(tag){\n")
 
 
-            val allActualChild =
+            val allActualChild = classDec.getAllActualChild()
+            allActualChild.forEach {
+                allImport.addAll(it.importSerializer())
+
+                val isExpressionFormat = "%s.uniqueTag -> %s.readFrom(buffer)"
+
+                val isExpression = String.format(
+                    isExpressionFormat,
+                    it.getSerializerObjectName(),
+                    it.getSerializerObjectName()
+                )
+                whenExpression.append("$isExpression\n");
+            }
+
+            whenExpression.append("else -> throw IllegalArgumentException(\"tag \$tag is not recognized for \$className\")\n")
 
 
             whenExpression.append("}\n")
+            funcRead.addStatement(whenExpression.toString())
 
             funcRead.addStatement("return result\n")
             Pair(listOf(funcRead.build()), emptySet())
