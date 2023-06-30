@@ -13,7 +13,7 @@ class X1(override val i: Int) : X(i)
 class NormalClass(val a: Int, val b: Int, val c: Int, val list: List<X>, val m: Map<String, X>)
 
 @MSerialization
-class MyData(val a: Int, val b: Int, val listInt: List<Long>, val listC: List<C>) {
+class MyData(val a: Int, val b: Int, val listInt: List<Long>, val listC: List<C>, val mapInt: Map<Int, Int>, val mapC: Map<Int, C>) {
 
     lateinit var hello: C
 
@@ -24,7 +24,9 @@ class MyData(val a: Int, val b: Int, val listInt: List<Long>, val listC: List<C>
 
 
 @MSerialization
-class C(val k: Int, val b: B, val listB: List<B>)
+class C(val k: Int, val b: B, val listB: List<B>) {
+    lateinit var mapB: Map<Int, B>
+}
 
 
 @MSerialization
@@ -45,3 +47,5 @@ sealed class B3(override val c: Int) : B(c)
 @MSerialization
 class B4(override val c: Int) : B3(c)
 
+@MSerialization
+class Event(val msg: String, val level: Int)

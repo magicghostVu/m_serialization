@@ -7,6 +7,7 @@ import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
+import m_serialization.data.class_metadata.GdGenClassMetaData
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
@@ -231,6 +232,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
 
                 val kotlinCodeGen = KotlinGenClassMetaData(logger)
+                val gdCodeGen = GdGenClassMetaData()
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
@@ -246,7 +248,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     classDecToUniqueTag
                 )
 
-                Pair(listOf(kotlinCodeGen), commonProp)
+                Pair(listOf(kotlinCodeGen, gdCodeGen), commonProp)
 
 
             }
@@ -258,6 +260,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     metaCodeGen.classDec = commonProp.classDec
                     metaCodeGen.protocolUniqueId = commonProp.protocolUniqueId
                     metaCodeGen.classDec = commonProp.classDec
+                    metaCodeGen.globalUniqueTag = commonProp.globalUniqueTag
 
 
                     metaCodeGen.doGenCode(env.codeGenerator)

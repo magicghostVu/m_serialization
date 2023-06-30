@@ -21,7 +21,7 @@ enum class ListTypeAtSource {
 class ListPrimitivePropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
-    private val type: PrimitiveType
+    val type: PrimitiveType
 ) : ListPropMetaData() {
 
 

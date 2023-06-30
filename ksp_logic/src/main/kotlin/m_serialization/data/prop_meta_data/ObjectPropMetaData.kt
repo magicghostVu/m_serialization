@@ -9,7 +9,7 @@ import m_serialization.utils.KSClassDecUtils.importSerializer
 class ObjectPropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
-    private val classDec: KSClassDeclaration// class được khai báo trong code
+    val classDec: KSClassDeclaration// class được khai báo trong code
 ) : AbstractPropMetadata() {
 
     // check class khai báo
