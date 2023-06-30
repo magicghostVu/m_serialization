@@ -6,8 +6,6 @@ import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ksp.writeTo
-import io.netty.buffer.ByteBuf
-import io.netty.buffer.Unpooled
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
@@ -68,7 +66,7 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
         val funcRead = FunSpec.builder(AbstractPropMetadata.readFromFuncName)
             .returns(typeName)
             .addParameter(
-                ParameterSpec.builder("buffer", ByteBuf::class.java).build()
+                ParameterSpec.builder("buffer", byteBufTypeName).build()
             )
         // switch case read theo các con
         return if (classDec.modifiers.contains(Modifier.SEALED)) {
@@ -166,7 +164,7 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
                     ParameterSpec.builder(objectToWriteVarName, typeName).build()
                 )
                 .addParameter(
-                    ParameterSpec.builder("buffer", ByteBuf::class).build()
+                    ParameterSpec.builder("buffer", byteBufTypeName).build()
                 )
             val allImports = mutableSetOf<String>()
 
@@ -184,7 +182,7 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
                 .receiver(typeName)
                 .addParameter(
                     ParameterSpec
-                        .builder("buffer", ByteBuf::class.java)
+                        .builder("buffer", byteBufTypeName)
                         .build()
                 )
                 .addStatement(
@@ -198,7 +196,7 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
                     ParameterSpec.builder(objectToWriteVarName, typeName).build()
                 )
                 .addParameter(
-                    ParameterSpec.builder("buffer", ByteBuf::class.java).build()
+                    ParameterSpec.builder("buffer", byteBufTypeName).build()
                 )
 
             funcWriteWithTag.addStatement(
@@ -229,7 +227,7 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
                 )
                 .addParameter(
                     ParameterSpec
-                        .builder("buffer", ByteBuf::class.java)
+                        .builder("buffer", byteBufTypeName)
                         .build()
                 )
 
@@ -264,7 +262,7 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
                     ParameterSpec.builder(objectToWriteVarName, typeName).build()
                 )
                 .addParameter(
-                    ParameterSpec.builder("buffer", ByteBuf::class.java).build()
+                    ParameterSpec.builder("buffer", byteBufTypeName).build()
                 )
                 .addStatement("${classDec.getFunctionNameWriteInternal()}($objectToWriteVarName, buffer)")
 

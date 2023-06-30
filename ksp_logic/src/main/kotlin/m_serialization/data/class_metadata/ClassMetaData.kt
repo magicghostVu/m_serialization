@@ -2,6 +2,7 @@ package m_serialization.data.class_metadata
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.squareup.kotlinpoet.ClassName
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 
 sealed class ClassMetaData(
@@ -16,4 +17,10 @@ sealed class ClassMetaData(
 
     // gen ra serializer và deserializer cho class này
     abstract fun doGenCode(codeGenerator: CodeGenerator): Unit
+
+    companion object{
+
+        val byteBufTypeName = ClassName("io.netty.buffer", "ByteBuf")
+    }
+
 }
