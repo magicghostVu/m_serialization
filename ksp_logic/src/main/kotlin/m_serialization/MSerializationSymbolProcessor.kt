@@ -7,7 +7,6 @@ import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
-import m_serialization.data.class_metadata.MyCodeGen
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
 import m_serialization.utils.GraphUtils
@@ -182,8 +181,14 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
         // sinh tag
         val autoTag = MutableShort()
-        //env.codeGenerator.
 
+
+        val classDecToUniqueTag = setAllClass
+            .asSequence()
+            .map {
+                val tag = autoTag.andIncrement
+                Pair(it, tag)
+            }.toMap()
 
         setAllClass
             .asSequence()
@@ -214,13 +219,20 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 tmpMap.forEach { (_, prop) ->
                     listPropNotInConstructor.add(prop)
                 }
-                val kotlinCodeGen = KotlinGenClassMetaData(listPropInConstructor, listPropNotInConstructor, it.first)
+
+                val kotlinCodeGen = KotlinGenClassMetaData(
+                    listPropInConstructor,
+                    listPropNotInConstructor,
+                    it.first,
+                    classDecToUniqueTag.getValue(classDec),
+                    classDecToUniqueTag
+                )
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
                 //todo: add other code gen here
                 //  c++, gdscript, c#
-                listOf(kotlinCodeGen, )
+                listOf(kotlinCodeGen)
 
             }
             .forEach {
@@ -228,27 +240,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     metaCodeGen.doGenCode(env.codeGenerator)
                 }
             }
-
-        /*val fileSpec = FileSpec.builder("pack.protocols", "S")
-            .addType(
-                TypeSpec
-                    .objectBuilder("S")
-                    .addProperty(
-                        PropertySpec
-                            .builder(
-                                "protocolId",
-                                Short::class
-                            )
-                            .initializer("1800")
-                            .build()
-                    )
-                    .build()
-            )
-
-        fileSpec.build().writeTo(env.codeGenerator, Dependencies(true))*/
-
-
-
         return emptyList()
     }
 

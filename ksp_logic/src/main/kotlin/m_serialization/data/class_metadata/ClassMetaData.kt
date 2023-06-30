@@ -7,7 +7,9 @@ import m_serialization.data.prop_meta_data.AbstractPropMetadata
 sealed class ClassMetaData(
     val constructorProps: List<AbstractPropMetadata>,
     val otherProps: List<AbstractPropMetadata>,
-    val classDec: KSClassDeclaration
+    val classDec: KSClassDeclaration,
+    val protocolUniqueId: Short,
+    val globalUniqueTag: Map<KSClassDeclaration, Short>
 ) {
     // gen ra serializer và deserializer cho class này
     abstract fun doGenCode(codeGenerator: CodeGenerator): Unit

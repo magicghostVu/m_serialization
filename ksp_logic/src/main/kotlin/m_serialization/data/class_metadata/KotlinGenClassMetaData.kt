@@ -20,8 +20,10 @@ import java.lang.StringBuilder
 class KotlinGenClassMetaData(
     constructorProps: List<AbstractPropMetadata>,
     otherProps: List<AbstractPropMetadata>,
-    classDec: KSClassDeclaration
-) : ClassMetaData(constructorProps, otherProps, classDec) {
+    classDec: KSClassDeclaration,
+    protocolUniqueId: Short,
+    globalUniqueTag: Map<KSClassDeclaration, Short>
+) : ClassMetaData(constructorProps, otherProps, classDec, protocolUniqueId, globalUniqueTag) {
 
 
     override fun doGenCode(codeGenerator: CodeGenerator) {
@@ -59,7 +61,11 @@ class KotlinGenClassMetaData(
 
     private fun genDeserializer(typeName: TypeName): Pair<List<FunSpec>, Set<String>> {
 
-        TODO()
+        val funcRead = FunSpec.builder("readFrom")
+
+
+
+        return Pair(emptyList(), emptySet())
     }
 
 
