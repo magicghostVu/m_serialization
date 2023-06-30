@@ -2,28 +2,22 @@ package m_serialization.data.class_metadata
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.symbol.KSClassDeclaration
+import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ksp.writeTo
 import io.netty.buffer.ByteBuf
+import io.netty.buffer.Unpooled
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getFunctionNameWriteInternal
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.importSerializer
-import java.lang.StringBuilder
 
 
 // mỗi class được đánh dấu là m_serialization sẽ sinh ra một object này
-class KotlinGenClassMetaData(
-    constructorProps: List<AbstractPropMetadata>,
-    otherProps: List<AbstractPropMetadata>,
-    classDec: KSClassDeclaration,
-    protocolUniqueId: Short,
-    globalUniqueTag: Map<KSClassDeclaration, Short>
-) : ClassMetaData(constructorProps, otherProps, classDec, protocolUniqueId, globalUniqueTag) {
+class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
 
 
     override fun doGenCode(codeGenerator: CodeGenerator) {
@@ -76,21 +70,42 @@ class KotlinGenClassMetaData(
             .addParameter(
                 ParameterSpec.builder("buffer", ByteBuf::class.java).build()
             )
-
+        // switch case read theo các con
         return if (classDec.modifiers.contains(Modifier.SEALED)) {
-            funcRead.addStatement("TODO()")
+
+
+            val allImport = mutableSetOf<String>()
+
+            funcRead.addStatement("val tag = buffer.readShort()\n")
+            val whenExpression = StringBuilder()
+
+            whenExpression.append("val result = when(tag){")
+
+
+            val allActualChild =
+
+
+            whenExpression.append("}\n")
+
+            funcRead.addStatement("return result\n")
             Pair(listOf(funcRead.build()), emptySet())
         } else {
             val readPropInConstructor = StringBuilder()
+            //var indexMark = 0
+
+
+            val allImport = mutableSetOf<String>()
+
             constructorProps.forEachIndexed { index, propMetaData ->
                 val tmpVarName = "v$index"
                 readPropInConstructor.append(
                     propMetaData.getReadStatement("buffer", tmpVarName, true)
                 ).append("\n")
+
+                allImport.addAll(propMetaData.addImportForRead())
             }
 
             // call constructor
-
 
 
             funcRead.addStatement(readPropInConstructor.toString())
@@ -103,8 +118,22 @@ class KotlinGenClassMetaData(
 
             funcRead.addStatement(callConstructorExpression)
 
-            funcRead.addStatement("TODO()")
-            Pair(listOf(funcRead.build()), emptySet())
+
+            // re-assign other remain prop
+
+            otherProps.forEach {
+                val readForThisProp = it.getReadStatement(
+                    "buffer",
+                    "result.${it.name}",
+                    false
+                )
+                funcRead.addStatement("$readForThisProp\n")
+                allImport.addAll(it.addImportForRead())
+            }
+
+
+            funcRead.addStatement("return result;")
+            Pair(listOf(funcRead.build()), allImport)
         }
 
     }

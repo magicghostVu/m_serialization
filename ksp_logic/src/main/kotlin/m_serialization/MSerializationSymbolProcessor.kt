@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
+import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
@@ -194,7 +195,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .asSequence()
             .map {
                 Pair(it, it.getAllPropMetaData())
-            }.map {
+            }.map { it ->
                 val (classDec, allPropMeta) = it
 
                 // xử lý constructor
@@ -220,23 +221,45 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     listPropNotInConstructor.add(prop)
                 }
 
-                val kotlinCodeGen = KotlinGenClassMetaData(
-                    listPropInConstructor,
-                    listPropNotInConstructor,
-                    it.first,
-                    classDecToUniqueTag.getValue(classDec),
-                    classDecToUniqueTag
-                )
+                listPropNotInConstructor.forEach { propMeta ->
+                    if (!propMeta.propDec.isMutable) {
+                        throwErr(
+                            "prop ${propMeta.name} at ${classDec.qualifiedName!!.asString()} is not in constructor so can not be immutable"
+                        )
+                    }
+                }
+
+
+                val kotlinCodeGen = KotlinGenClassMetaData(logger)
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
                 //todo: add other code gen here
                 //  c++, gdscript, c#
-                listOf(kotlinCodeGen)
+
+
+                val commonProp = CommonPropForMetaCodeGen(
+                    listPropInConstructor,
+                    listPropNotInConstructor,
+                    classDec,
+                    classDecToUniqueTag.getValue(classDec),
+                    classDecToUniqueTag
+                )
+
+                Pair(listOf(kotlinCodeGen), commonProp)
+
 
             }
-            .forEach {
-                it.forEach { metaCodeGen ->
+            .forEach { (list, commonProp) ->
+                list.forEach { metaCodeGen ->
+
+                    metaCodeGen.constructorProps = commonProp.constructorProps
+                    metaCodeGen.otherProps = commonProp.otherProps
+                    metaCodeGen.classDec = commonProp.classDec
+                    metaCodeGen.protocolUniqueId = commonProp.protocolUniqueId
+                    metaCodeGen.classDec = commonProp.classDec
+
+
                     metaCodeGen.doGenCode(env.codeGenerator)
                 }
             }
@@ -518,6 +541,8 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     private fun verifyAllPropNotGenericsSerializable(clazz: KSClassDeclaration) {
         val allProps = clazz.getAllProperties()
+
+
         allProps
             .filter {
                 it.hasBackingField

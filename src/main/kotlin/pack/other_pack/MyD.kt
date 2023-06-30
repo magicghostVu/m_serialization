@@ -4,5 +4,6 @@ import m_serialization.annotations.MSerialization
 import pack.debug_protocols.MyData
 
 @MSerialization
-class MyD(val c: MyData) {
+class MyD(val c: MyData, val s: String) {
+    var g:Int = 10
 }
