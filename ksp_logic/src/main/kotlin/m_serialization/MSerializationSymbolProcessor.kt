@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
+import m_serialization.annotations.TestAnno
 import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
@@ -61,9 +62,22 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
 
-        if (!invoke) {
-            invoke = true
-        } else {
+        val classContainTest = resolver.getSymbolsWithAnnotation(
+            TestAnno::class.qualifiedName.toString()
+        )
+
+
+        val listTest = classContainTest.map { it as KSClassDeclaration }.toList()
+
+
+        if (listTest.isNotEmpty()) {
+
+            listTest[0].getAllProperties().forEach {
+                val byteArrayName = it.type.resolve().declaration.qualifiedName!!.asString()
+                logger.warn("byte array name is $byteArrayName")
+
+            }
+
             return emptyList()
         }
 
