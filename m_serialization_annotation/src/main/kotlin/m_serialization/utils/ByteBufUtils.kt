@@ -16,7 +16,7 @@ object ByteBufUtils {
     }
 
     fun ByteBuf.readString(): String {
-        val arraySize = readUnsignedShort();
+        val arraySize = readUnsignedShort()
         val array = ByteArray(arraySize)
         readBytes(array)
         return String(array, StandardCharsets.UTF_8)
@@ -30,5 +30,24 @@ object ByteBufUtils {
     fun ByteBuf.readBool(): Boolean {
         val b = readByte()
         return b == 1.toByte()
+    }
+
+    fun ByteBuf.writeByteArray(byteArray: ByteArray) {
+        val size = byteArray.size
+        if (size > UShort.MAX_VALUE.toInt()) {
+            throw IllegalArgumentException("size of byte array is to big, max value is ${UShort.MAX_VALUE}")
+        }
+        writeShort(size)
+        writeBytes(byteArray)
+    }
+
+    fun ByteBuf.readByteArray(): ByteArray {
+        val size = readUnsignedShort();
+        if (size > UShort.MAX_VALUE.toInt()) {
+            throw IllegalArgumentException("impossible, review serialize logic")
+        }
+        val res = ByteArray(size)
+        readBytes(res)
+        return res;
     }
 }
