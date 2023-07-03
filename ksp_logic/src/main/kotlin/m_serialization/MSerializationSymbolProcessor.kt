@@ -9,8 +9,10 @@ import m_serialization.annotations.MTransient
 import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
+import m_serialization.data.prop_meta_data.PrimitiveType
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitiveNotByteArray
+import m_serialization.data.prop_meta_data.PrimitiveType.Companion.toPrimitiveType
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
@@ -498,7 +500,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
 
                         if (keyClass.isPrimitive()) {
-                            if (!keyClass.isPrimitiveNotByteArray()) {
+                            if (keyClass.toPrimitiveType() == PrimitiveType.BYTE_ARRAY) {
                                 throwErr("key element at prop $propName at $containerClassName can not be byte array")
                             }
                         }
