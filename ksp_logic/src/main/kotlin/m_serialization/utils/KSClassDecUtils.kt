@@ -122,12 +122,18 @@ object KSClassDecUtils {
     private fun processListProp(propDec: KSPropertyDeclaration, listType: KSType): ListPropMetaData {
         val elementType = listType.arguments[0].type!!.resolve()
         return if (elementType.isPrimitive()) {
-            ListPrimitivePropMetaData(propDec.simpleName.asString(), propDec, elementType.toPrimitiveType())
+            ListPrimitivePropMetaData(
+                propDec.simpleName.asString(),
+                propDec,
+                elementType.toPrimitiveType(),
+                listType
+            )
         } else {
             ListObjectPropMetaData(
                 propDec.simpleName.asString(),
                 propDec,
-                elementType.declaration as KSClassDeclaration
+                elementType.declaration as KSClassDeclaration,
+                listType
             )
         }
     }
@@ -208,7 +214,6 @@ object KSClassDecUtils {
 
     // nó sẽ gọi hàm writeToInternal của class đó
     val writeTo = "writeTo"// người dùng call, và là extension function
-
 
 
     // xem xét có thêm nối tên class vào để tránh nhầm lẫn
