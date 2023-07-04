@@ -7,7 +7,7 @@ import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
 import java.lang.StringBuilder
 
-sealed class ListPropMetaData : AbstractPropMetadata() {
+sealed class ListPropMetaData(open val listType: ListTypeAtSource) : AbstractPropMetadata() {
 
 }
 
@@ -21,8 +21,9 @@ enum class ListTypeAtSource {
 class ListPrimitivePropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
-    private val type: PrimitiveType
-) : ListPropMetaData() {
+    private val type: PrimitiveType,
+    override val listType: ListTypeAtSource
+) : ListPropMetaData(listType) {
 
 
     override fun getWriteStatement(objectNameContainThisProp: String): String {
@@ -90,8 +91,9 @@ class ListPrimitivePropMetaData(
 class ListObjectPropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
-    val elementClass: KSClassDeclaration
-) : ListPropMetaData() {
+    val elementClass: KSClassDeclaration,
+    override val listType: ListTypeAtSource
+) : ListPropMetaData(listType) {
 
 
     override fun getWriteStatement(objectNameContainThisProp: String): String {
