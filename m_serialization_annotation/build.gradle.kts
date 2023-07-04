@@ -18,4 +18,10 @@ dependencies{
 
 tasks.withType<KotlinCompile> {
     kotlinOptions.jvmTarget = "11"
+    kotlinOptions.freeCompilerArgs = listOf(
+        "-opt-in=kotlin.RequiresOptIn",
+        "-Xno-call-assertions",
+        "-Xno-receiver-assertions",
+        "-Xno-param-assertions"
+    )
 }
