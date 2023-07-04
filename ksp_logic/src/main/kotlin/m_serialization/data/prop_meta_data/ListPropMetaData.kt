@@ -2,27 +2,52 @@ package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.google.devtools.ksp.symbol.KSType
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
 import java.lang.StringBuilder
 
-sealed class ListPropMetaData(open val listType: ListTypeAtSource) : AbstractPropMetadata() {
 
+sealed class ListPropMetaData(val listType: KSType) : AbstractPropMetadata() {
+    fun listTypeAtSource(): ListTypeAtSource {
+        return ListTypeAtSource.fromName(listType.declaration.qualifiedName!!.asString())
+    }
 }
 
 // deserialize
-enum class ListTypeAtSource {
-    List,// immutable list
-    MutableList,
-    LinkedList
+enum class ListTypeAtSource(val fullName: String) {
+    List("kotlin.collections.List"),// immutable list
+    MutableList("kotlin.collections.MutableList"),
+    MLinkedList("java.util.LinkedList");
+
+    companion object {
+        private val map = ListTypeAtSource
+            .values()
+            .asSequence()
+            .associateBy { it.fullName }
+
+        fun fromName(fullName: String): ListTypeAtSource {
+            return map.getValue(fullName)
+        }
+
+
+        fun createNewExpression(listType: ListTypeAtSource, typeParam: String): String {
+            return when (listType) {
+                List -> "mutableListOf<$typeParam>()"
+                MutableList -> "mutableListOf<$typeParam>()"
+                MLinkedList -> "LinkedList<$typeParam>()"
+            }
+        }
+
+    }
 }
 
 class ListPrimitivePropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     private val type: PrimitiveType,
-    override val listType: ListTypeAtSource
+    listType: KSType
 ) : ListPropMetaData(listType) {
 
 
@@ -63,7 +88,15 @@ class ListPrimitivePropMetaData(
         readStatement.append("val $sizeVarName = ${bufferVarName}.readInt()\n")
 
         // todo: construct lại đúng loại list ban đầu
-        readStatement.append("val $listTmpName = mutableListOf<$typeParamsForCreateList>()\n")
+        //readStatement.append("val $listTmpName = mutableListOf<$typeParamsForCreateList>()\n")
+        readStatement.append(
+            "val $listTmpName = ${
+                ListTypeAtSource.createNewExpression(
+                    listTypeAtSource(),
+                    typeParamsForCreateList
+                )
+            }\n"
+        )
         readStatement.append(
             """
             repeat($sizeVarName){
@@ -83,7 +116,14 @@ class ListPrimitivePropMetaData(
     }
 
     override fun addImportForRead(): List<String> {
-        return PrimitiveType.addImportExpressionForRead(type)
+        val l = PrimitiveType.addImportExpressionForRead(type);
+        val s = "java.util.LinkedList"
+        val f = if (listTypeAtSource() == ListTypeAtSource.MLinkedList) {
+            listOf(s)
+        } else {
+            emptyList()
+        }
+        return l + f
     }
 }
 
@@ -92,7 +132,7 @@ class ListObjectPropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     val elementClass: KSClassDeclaration,
-    override val listType: ListTypeAtSource
+    listType: KSType
 ) : ListPropMetaData(listType) {
 
 
@@ -126,7 +166,14 @@ class ListObjectPropMetaData(
         // lấy serializer và read
         val objectNameToCallRead = elementClass.getSerializerObjectName()
 
-        readStatement.append("val $listTmpName = mutableListOf<$typeParamsForCreateList>()\n")
+        readStatement.append(
+            "val $listTmpName = ${
+                ListTypeAtSource.createNewExpression(
+                    listTypeAtSource(),
+                    typeParamsForCreateList
+                )
+            }\n"
+        )
         readStatement.append(
             """
             repeat($sizeVarName){
@@ -147,9 +194,13 @@ class ListObjectPropMetaData(
 
     override fun addImportForRead(): List<String> {
         val packageName = elementClass.packageName.asString()
-        return listOf(
+        val t = listOf(
             "${packageName}.${elementClass.getSerializerObjectName()}"
         )
+        val importIfLinkedList = if (listTypeAtSource() == ListTypeAtSource.MLinkedList) {
+            listOf("java.util.LinkedList")
+        } else emptyList()
+        return t + importIfLinkedList
     }
 
     override fun addImportForWrite(): List<String> {
