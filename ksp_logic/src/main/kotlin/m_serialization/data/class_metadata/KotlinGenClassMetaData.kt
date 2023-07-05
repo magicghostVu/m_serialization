@@ -12,6 +12,7 @@ import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
+import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
 import m_serialization.utils.KSClassDecUtils.getFunctionNameWriteInternal
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.importSerializer
@@ -38,8 +39,12 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
         )
 
 
+        // chỉ gen
         if (classDec.classKind == ClassKind.ENUM_CLASS) {
 
+
+            /*val allEntry = classDec.getAllEnumEntrySimpleName()
+            logger.warn("all entry of ${classDec.qualifiedName!!.asString()} is $allEntry")*/
 
             // gen code for enum
             val enumSimpleName = classDec.simpleName.asString()
@@ -66,6 +71,32 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
                                         ".associateBy { it.ordinal.toShort() }"
                             )
                         }
+                    )
+                    .build()
+            )
+
+            objectBuilder.addFunction(
+                FunSpec.builder("toId")
+                    .returns(Short::class)
+                    .addParameter(
+                        ParameterSpec
+                            .builder("mEnum", typeNameForThisEnum)
+                            .build()
+                    )
+                    .addStatement("return mEnum.ordinal.toShort()")
+                    .build()
+            )
+
+            objectBuilder.addFunction(
+                FunSpec.builder("fromId")
+                    .returns(typeNameForThisEnum)
+                    .addParameter(
+                        ParameterSpec
+                            .builder("id", Short::class)
+                            .build()
+                    )
+                    .addStatement(
+                        "return map.getValue(id)"
                     )
                     .build()
             )

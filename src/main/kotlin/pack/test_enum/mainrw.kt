@@ -1,12 +1,12 @@
 package pack.test_enum
 
 import m_serialization.annotations.MSerialization
-import m_serialization.annotations.TestEnum
 
 
 fun main() {
-    val c = MyEnum.E1
-    //val id = MyEnumMSerializer.toId(c)
+    val c = MyEnum.E2
+    val id = MyEnumMSerializer.toId(c)
+    println("id is $id")
 }
 
 @MSerialization
@@ -16,21 +16,3 @@ enum class MyEnum {
     E3;
 }
 
-
-// code gen prototype
-/*
-object MyEnumMSerializer {
-
-    private val map: Map<Short, MyEnum> = MyEnum
-        .values()
-        .asSequence()
-        .associateBy { it.ordinal.toShort() }
-
-    fun toId(enum: MyEnum): Short {
-        return enum.ordinal.toShort()
-    }
-
-    fun fromId(code: Short): MyEnum {
-        return map.getValue(code)
-    }
-}*/

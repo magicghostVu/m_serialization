@@ -211,12 +211,14 @@ object KSClassDecUtils {
 
 
     fun KSClassDeclaration.getAllEnumEntrySimpleName(): List<String> {
+        val result = mutableListOf<String>()
         declarations.forEach {
             if (it is KSClassDeclaration) {
-                logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
+                //logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
+                result.add(it.simpleName.asString())
             }
         }
-        return emptyList()
+        return result
     }
 
 
