@@ -209,6 +209,17 @@ object KSClassDecUtils {
         return result.toList()
     }
 
+
+    fun KSClassDeclaration.getAllEnumEntrySimpleName(): List<String> {
+        declarations.forEach {
+            if (it is KSClassDeclaration) {
+                logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
+            }
+        }
+        return emptyList()
+    }
+
+
     fun KSClassDeclaration.getFunctionNameWriteInternal(): String {
         return writeToInternal + simpleName.asString()
     }

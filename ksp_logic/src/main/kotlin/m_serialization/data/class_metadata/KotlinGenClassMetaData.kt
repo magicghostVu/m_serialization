@@ -3,8 +3,11 @@ package m_serialization.data.class_metadata
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.*
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
+import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.utils.KSClassDecUtils
@@ -35,28 +38,64 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
         )
 
 
-        val (funcSerialize, allImport) = genFunctionSerializer(className)
-        funcSerialize.forEach {
-            objectBuilder.addFunction(it)
+        if (classDec.classKind == ClassKind.ENUM_CLASS) {
+
+
+            // gen code for enum
+            val enumSimpleName = classDec.simpleName.asString()
+
+            val typeNameForThisEnum = classDec.toClassName()
+
+            val typeForMap = Map::class.asTypeName()
+                .parameterizedBy(Short::class.asTypeName(), typeNameForThisEnum)
+
+
+
+            objectBuilder.addProperty(
+                PropertySpec
+                    .builder(
+                        "map",
+                        typeForMap,
+                        KModifier.PRIVATE
+                    )
+                    .initializer(
+                        buildCodeBlock {
+                            add(
+                                "${enumSimpleName}.values()\n" +
+                                        ".asSequence()\n" +
+                                        ".associateBy { it.ordinal.toShort() }"
+                            )
+                        }
+                    )
+                    .build()
+            )
+
+            fileBuilder.addType(objectBuilder.build())
+            fileBuilder.build().writeTo(codeGenerator, Dependencies(true))
+
+        } else {
+            val (funcSerialize, allImport) = genFunctionSerializer(className)
+            funcSerialize.forEach {
+                objectBuilder.addFunction(it)
+            }
+            allImport.forEach {
+                fileBuilder.addImport(it, "")
+            }
+
+
+            val (funcDeserializers, allImportDeserializer) = genDeserializer(className)
+            funcDeserializers.forEach {
+                objectBuilder.addFunction(it)
+            }
+
+            allImportDeserializer.forEach {
+                fileBuilder.addImport(it, "")
+            }
+
+
+            fileBuilder.addType(objectBuilder.build())
+            fileBuilder.build().writeTo(codeGenerator, Dependencies(true))
         }
-        allImport.forEach {
-            fileBuilder.addImport(it, "")
-        }
-
-
-        val (funcDeserializers, allImportDeserializer) = genDeserializer(className)
-        funcDeserializers.forEach {
-            objectBuilder.addFunction(it)
-        }
-
-        allImportDeserializer.forEach {
-            fileBuilder.addImport(it, "")
-        }
-
-
-        fileBuilder.addType(objectBuilder.build())
-        fileBuilder.build().writeTo(codeGenerator, Dependencies(true))
-
     }
 
 

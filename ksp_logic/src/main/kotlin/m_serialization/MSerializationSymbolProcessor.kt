@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
+import m_serialization.annotations.TestEnum
 import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
@@ -17,6 +18,8 @@ import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
 import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
+
+import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
 import m_serialization.utils.KSClassDecUtils.getAllPropMetaData
 import org.apache.commons.lang3.mutable.MutableShort
 import org.jgrapht.graph.DefaultDirectedGraph
@@ -64,6 +67,24 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
 
+
+        /*val testClass = resolver.getSymbolsWithAnnotation(
+            TestEnum::class.qualifiedName.toString()
+        ).toList()
+
+
+        if (testClass.isNotEmpty()) {
+
+            testClass.forEach{
+                val cc = it as KSClassDeclaration
+                cc.getAllEnumEntrySimpleName();
+            }
+
+
+            return emptyList()
+        }*/
+
+
         val allClassWillProcess = resolver.getSymbolsWithAnnotation(
             MSerialization::class
                 .qualifiedName
@@ -79,12 +100,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
         setAllClass
             .asSequence()
-            .map { c ->
+            /*.map { c ->
                 if (c.classKind == ClassKind.ENUM_CLASS) {
                     throwErr("temporary not support enum class ${c.qualifiedName?.asString()}")
                 }
                 c
-            }
+            }*/
             .map {
 
                 val numTypeParam = it.typeParameters.size
