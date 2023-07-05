@@ -142,22 +142,24 @@ object KSClassDecUtils {
 
         val keyType = mapType.arguments[0].type!!.resolve()
         val valueType = mapType.arguments[1].type!!.resolve()
-
         val primitiveKeyType = keyType.toPrimitiveType()
-
+        val mapTypeAtSource = MapTypeAtSource.fromType(mapType)
+        //logger.warn("map type of ${propDec.simpleName.asString()} is $mapTypeAtSource")
         return if (valueType.isPrimitive()) {
             MapPrimitiveValueMetaData(
                 propDec.simpleName.asString(),
                 propDec,
                 primitiveKeyType,
-                valueType.toPrimitiveType()
+                valueType.toPrimitiveType(),
+                mapTypeAtSource
             )
         } else {
             MapObjectValueMetaData(
                 propDec.simpleName.asString(),
                 propDec,
                 primitiveKeyType,
-                valueType.declaration as KSClassDeclaration
+                valueType.declaration as KSClassDeclaration,
+                mapTypeAtSource
             )
         }
 
