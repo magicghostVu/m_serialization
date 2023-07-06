@@ -1,10 +1,7 @@
 package m_serialization.utils
 
 import com.google.devtools.ksp.processing.KSPLogger
-import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSPropertyDeclaration
-import com.google.devtools.ksp.symbol.KSType
-import com.google.devtools.ksp.symbol.Modifier
+import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MTransient
 import m_serialization.data.prop_meta_data.*
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
@@ -98,7 +95,13 @@ object KSClassDecUtils {
 
             val propMetaData: AbstractPropMetadata = when (type.declaration.typeParameters.size) {
                 0 -> {// object prop
-                    processObjectProp(it, type)
+
+                    val classDecOfType = type.declaration as KSClassDeclaration
+                    if (classDecOfType.classKind == ClassKind.ENUM_CLASS) {
+                        processEnumProp(it, type, classDecOfType)
+                    } else {
+                        processObjectProp(it, type)
+                    }
                 }
 
                 1 -> {// list prop
@@ -129,12 +132,24 @@ object KSClassDecUtils {
                 listType
             )
         } else {
-            ListObjectPropMetaData(
-                propDec.simpleName.asString(),
-                propDec,
-                elementType.declaration as KSClassDeclaration,
-                listType
-            )
+
+            val classDecOfElement = elementType.declaration as KSClassDeclaration
+            if (classDecOfElement.classKind == ClassKind.ENUM_CLASS) {
+                ListEnumPropMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    classDecOfElement,
+                    listType
+                )
+            } else {
+                ListObjectPropMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    classDecOfElement,
+                    listType
+                )
+            }
+
         }
     }
 
@@ -168,6 +183,16 @@ object KSClassDecUtils {
     private fun processObjectProp(propDec: KSPropertyDeclaration, objectType: KSType): ObjectPropMetaData {
         return ObjectPropMetaData(propDec.simpleName.asString(), propDec, objectType.declaration as KSClassDeclaration)
     }
+
+
+    private fun processEnumProp(
+        propDec: KSPropertyDeclaration,
+        objectType: KSType,
+        enumClass: KSClassDeclaration
+    ): EnumPropMetaData {
+        return EnumPropMetaData(propDec.simpleName.asString(), propDec, enumClass)
+    }
+
 
     fun KSClassDeclaration.getSerializerObjectName(): String {
         return this.simpleName.asString() + AbstractPropMetadata.serializerObjectNameSuffix

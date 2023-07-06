@@ -27,7 +27,10 @@ enum class MapTypeAtSource(val fullName: String) {
 }
 
 
-sealed class MapPropMetaData(val mapTypeAtSource: MapTypeAtSource) : AbstractPropMetadata() {
+
+
+
+sealed class MapPrimitiveKeyPropMetaData(val mapTypeAtSource: MapTypeAtSource) : AbstractPropMetadata() {
     abstract val keyType: PrimitiveType
 }
 
@@ -38,11 +41,11 @@ class MapPrimitiveValueMetaData(
     override val keyType: PrimitiveType,
     private val valueType: PrimitiveType,
     mapTypeAtSource: MapTypeAtSource
-) : MapPropMetaData(mapTypeAtSource) {
+) : MapPrimitiveKeyPropMetaData(mapTypeAtSource) {
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
         val statement = """
-            %s.writeInt(%s.size)
+            %s.writeShort(%s.size)
             %s.forEach{ (k,v) ->
                 ${keyType.writeToBufferExpression(bufferVarName, "k")}
                 ${valueType.writeToBufferExpression(bufferVarName, "v")}
@@ -59,7 +62,7 @@ class MapPrimitiveValueMetaData(
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
         val readExpression = StringBuilder();
         readExpression.append(
-            "val size$varNameToAssign = ${bufferVarName}.readInt()\n"
+            "val size$varNameToAssign = ${bufferVarName}.readShort().toInt()\n"
         )
 
 
@@ -125,11 +128,11 @@ class MapObjectValueMetaData(
     override val keyType: PrimitiveType,
     private val valueClassDec: KSClassDeclaration,
     mapTypeAtSource: MapTypeAtSource
-) : MapPropMetaData(mapTypeAtSource) {
+) : MapPrimitiveKeyPropMetaData(mapTypeAtSource) {
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
         val statement = """
-            %s.writeInt(%s.size)
+            %s.writeShort(%s.size)
             %s.forEach{ (k,v) ->
                 ${keyType.writeToBufferExpression(bufferVarName, "k")}
                 ${valueClassDec.getWriteObjectStatement(bufferVarName, "v")}
@@ -146,7 +149,7 @@ class MapObjectValueMetaData(
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
         val readExpression = StringBuilder();
         readExpression.append(
-            "val size$varNameToAssign = ${bufferVarName}.readInt()\n"
+            "val size$varNameToAssign = ${bufferVarName}.readShort().toInt()\n"
         )
 
 

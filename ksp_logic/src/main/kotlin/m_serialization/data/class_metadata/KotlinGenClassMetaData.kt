@@ -39,7 +39,7 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
         )
 
 
-        // chỉ gen
+        // chỉ gen get id và from id
         if (classDec.classKind == ClassKind.ENUM_CLASS) {
 
 

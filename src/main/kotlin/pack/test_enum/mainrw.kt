@@ -9,6 +9,13 @@ fun main() {
     println("id is $id")
 }
 
+
+@MSerialization
+class EnumContain(val e: MyEnum)
+
+@MSerialization
+class MListEnum(val list: List<MyEnum>)
+
 @MSerialization
 enum class MyEnum {
     E1,
