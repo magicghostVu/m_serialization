@@ -61,6 +61,14 @@ class MapPrimitiveValueMetaData(
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
         val readExpression = StringBuilder();
+
+
+        // trong trường hợp gán lại cho các prop không trong constructor
+        val varNameToUse = if (!declareNewVar) {
+            varNameToAssign.split(".")[1]
+        } else varNameToAssign
+
+
         readExpression.append(
             "val size$varNameToAssign = ${bufferVarName}.readShort().toInt()\n"
         )
@@ -73,7 +81,7 @@ class MapPrimitiveValueMetaData(
         }
 
         readExpression.append(
-            "val tmpMap$varNameToAssign = $mapTypeWillCreate<${PrimitiveType.simpleName(keyType)},${
+            "val tmpMap$varNameToUse = $mapTypeWillCreate<${PrimitiveType.simpleName(keyType)},${
                 PrimitiveType.simpleName(
                     valueType
                 )
@@ -82,10 +90,10 @@ class MapPrimitiveValueMetaData(
 
         readExpression.append(
             """
-            repeat(size${varNameToAssign}){
+            repeat(size${varNameToUse}){
                 ${keyType.readFromBufferExpression(bufferVarName, "key", true)}
                 ${valueType.readFromBufferExpression(bufferVarName, "value", true)}
-                tmpMap${varNameToAssign}[key] = value
+                tmpMap${varNameToUse}[key] = value
         }
         
         """
@@ -93,9 +101,9 @@ class MapPrimitiveValueMetaData(
 
 
         if (declareNewVar) {
-            readExpression.append("val $varNameToAssign = tmpMap$varNameToAssign")
+            readExpression.append("val $varNameToAssign = tmpMap$varNameToUse")
         } else {
-            readExpression.append("$varNameToAssign = tmpMap$varNameToAssign")
+            readExpression.append("$varNameToAssign = tmpMap$varNameToUse")
         }
         return readExpression.toString()
     }
