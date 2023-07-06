@@ -3,12 +3,16 @@ package m_serialization.data.class_metadata
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.processing.KSPLogger
+import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.*
+import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
+import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
+import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
 import m_serialization.utils.KSClassDecUtils.getFunctionNameWriteInternal
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.importSerializer
@@ -35,28 +39,94 @@ class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
         )
 
 
-        val (funcSerialize, allImport) = genFunctionSerializer(className)
-        funcSerialize.forEach {
-            objectBuilder.addFunction(it)
+        // chỉ gen get id và from id
+        if (classDec.classKind == ClassKind.ENUM_CLASS) {
+
+
+            /*val allEntry = classDec.getAllEnumEntrySimpleName()
+            logger.warn("all entry of ${classDec.qualifiedName!!.asString()} is $allEntry")*/
+
+            // gen code for enum
+            val enumSimpleName = classDec.simpleName.asString()
+
+            val typeNameForThisEnum = classDec.toClassName()
+
+            val typeForMap = Map::class.asTypeName()
+                .parameterizedBy(Short::class.asTypeName(), typeNameForThisEnum)
+
+
+
+            objectBuilder.addProperty(
+                PropertySpec
+                    .builder(
+                        "map",
+                        typeForMap,
+                        KModifier.PRIVATE
+                    )
+                    .initializer(
+                        buildCodeBlock {
+                            add(
+                                "${enumSimpleName}.values()\n" +
+                                        ".asSequence()\n" +
+                                        ".associateBy { it.ordinal.toShort() }"
+                            )
+                        }
+                    )
+                    .build()
+            )
+
+            objectBuilder.addFunction(
+                FunSpec.builder("toId")
+                    .returns(Short::class)
+                    .addParameter(
+                        ParameterSpec
+                            .builder("mEnum", typeNameForThisEnum)
+                            .build()
+                    )
+                    .addStatement("return mEnum.ordinal.toShort()")
+                    .build()
+            )
+
+            objectBuilder.addFunction(
+                FunSpec.builder("fromId")
+                    .returns(typeNameForThisEnum)
+                    .addParameter(
+                        ParameterSpec
+                            .builder("id", Short::class)
+                            .build()
+                    )
+                    .addStatement(
+                        "return map.getValue(id)"
+                    )
+                    .build()
+            )
+
+            fileBuilder.addType(objectBuilder.build())
+            fileBuilder.build().writeTo(codeGenerator, Dependencies(true))
+
+        } else {
+            val (funcSerialize, allImport) = genFunctionSerializer(className)
+            funcSerialize.forEach {
+                objectBuilder.addFunction(it)
+            }
+            allImport.forEach {
+                fileBuilder.addImport(it, "")
+            }
+
+
+            val (funcDeserializers, allImportDeserializer) = genDeserializer(className)
+            funcDeserializers.forEach {
+                objectBuilder.addFunction(it)
+            }
+
+            allImportDeserializer.forEach {
+                fileBuilder.addImport(it, "")
+            }
+
+
+            fileBuilder.addType(objectBuilder.build())
+            fileBuilder.build().writeTo(codeGenerator, Dependencies(true))
         }
-        allImport.forEach {
-            fileBuilder.addImport(it, "")
-        }
-
-
-        val (funcDeserializers, allImportDeserializer) = genDeserializer(className)
-        funcDeserializers.forEach {
-            objectBuilder.addFunction(it)
-        }
-
-        allImportDeserializer.forEach {
-            fileBuilder.addImport(it, "")
-        }
-
-
-        fileBuilder.addType(objectBuilder.build())
-        fileBuilder.build().writeTo(codeGenerator, Dependencies(true))
-
     }
 
 

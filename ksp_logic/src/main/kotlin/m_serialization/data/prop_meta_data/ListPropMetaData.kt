@@ -54,7 +54,7 @@ class ListPrimitivePropMetaData(
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";// ByteBuf
         val r = String.format(
-            """%s.writeInt(%s.size)// list size
+            """%s.writeShort(%s.size.toInt())// list size
                 for (e in %s) {
                     ${type.writeToBufferExpression(bufferVarName, "e")}
                 }
@@ -91,7 +91,7 @@ class ListPrimitivePropMetaData(
 
         val listTmpName = "list$varNameSuffix"
 
-        readStatement.append("val $sizeVarName = ${bufferVarName}.readInt()\n")
+        readStatement.append("val $sizeVarName = ${bufferVarName}.readShort().toInt()\n")
 
         // todo: construct lại đúng loại list ban đầu
         //readStatement.append("val $listTmpName = mutableListOf<$typeParamsForCreateList>()\n")
@@ -145,7 +145,7 @@ class ListObjectPropMetaData(
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";// ByteBuf
         val r = String.format(
-            """%s.writeInt(%s.size)// list size
+            """%s.writeShort(%s.size)// list size
                 for (e in %s) {
                     ${elementClass.getWriteObjectStatement(bufferVarName, "e")}
                 }
@@ -160,12 +160,11 @@ class ListObjectPropMetaData(
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
         val readStatement = StringBuilder()
         val sizeVarName = "size${varNameToAssign}"
-        val typeParamsForCreateList =
-            (propDec.type.resolve().arguments[0].type!!.resolve().declaration as KSClassDeclaration).simpleName.asString()
+        val typeParamsForCreateList = elementClass.simpleName.asString()
 
         val listTmpName = "list$varNameToAssign"
 
-        readStatement.append("val $sizeVarName = ${bufferVarName}.readInt()\n")
+        readStatement.append("val $sizeVarName = ${bufferVarName}.readShort().toInt()\n")
 
         // todo: construct lại đúng loại list ban đầu
 
@@ -211,5 +210,75 @@ class ListObjectPropMetaData(
 
     override fun addImportForWrite(): List<String> {
         return elementClass.importSerializer()
+    }
+}
+
+class ListEnumPropMetaData(
+    override val name: String,
+    override val propDec: KSPropertyDeclaration,
+    val enumClass: KSClassDeclaration,
+    listType: KSType
+) : ListPropMetaData(listType) {
+    override fun getWriteStatement(objectNameContainThisProp: String): String {
+        val bufferVarName = "buffer";// ByteBuf
+        val r = String.format(
+            """%s.writeShort(%s.size)// list size
+                for (e in %s) {
+                    buffer.writeShort(${enumClass.getSerializerObjectName()}.toId(e).toInt())
+                }
+            """,
+            bufferVarName,
+            "${objectNameContainThisProp}.$name",
+            "${objectNameContainThisProp}.$name"
+        )
+        return r
+    }
+
+    override fun addImportForWrite(): List<String> {
+        return enumClass.importSerializer()
+    }
+
+    override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
+        val readStatement = StringBuilder()
+        val sizeVarName = "size${varNameToAssign}"
+        val typeParamsForCreateList = enumClass.simpleName.asString()
+
+        val listTmpName = "list$varNameToAssign"
+
+        readStatement.append("val $sizeVarName = ${bufferVarName}.readShort().toInt()\n")
+
+        // todo: construct lại đúng loại list ban đầu
+
+        // lấy serializer và read
+        //val objectNameToCallRead = elementClass.getSerializerObjectName()
+
+        readStatement.append(
+            "val $listTmpName = ${
+                ListTypeAtSource.createNewExpression(
+                    listTypeAtSource(),
+                    typeParamsForCreateList
+                )
+            }\n"
+        )
+        readStatement.append(
+            """
+            repeat($sizeVarName){
+            val e = ${enumClass.getSerializerObjectName()}.fromId($bufferVarName.readShort())
+            ${listTmpName}.add(e)
+        }
+        """
+        )
+
+        val assignExpression = if (declareNewVar) {
+            "val $varNameToAssign = $listTmpName\n"
+        } else {
+            "$varNameToAssign = $listTmpName\n"
+        }
+        readStatement.append(assignExpression)
+        return readStatement.toString()
+    }
+
+    override fun addImportForRead(): List<String> {
+        return enumClass.importSerializer()
     }
 }
