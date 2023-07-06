@@ -524,9 +524,19 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                             if (keyClass.toPrimitiveType() == PrimitiveType.BYTE_ARRAY) {
                                 throwErr("key element at prop $propName at $containerClassName can not be byte array")
                             }
-                        }
+                        } else {
+                            val classDecOfKeyClass = keyClass.declaration as KSClassDeclaration
+                            if (classDecOfKeyClass.classKind != ClassKind.ENUM_CLASS) {
+                                throwErr("key element at prop $propName at $containerClassName can not be object")
+                            } else {
+                                val allAnnoName = classDecOfKeyClass.getAllAnnotationName()
+                                if (!allAnnoName.contains(MSerialization::class.java.name)) {
+                                    throwErr("key element at prop $propName at $containerClassName can not serializable")
+                                }
 
-                        keyClass.isPrimitiveNotByteArray() && valueClass.isPrimitiveOrSerializable()
+                            }
+                        }
+                        valueClass.isPrimitiveOrSerializable()
 
                     }
                 }

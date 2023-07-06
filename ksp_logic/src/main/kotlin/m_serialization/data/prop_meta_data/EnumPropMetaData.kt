@@ -12,7 +12,8 @@ class EnumPropMetaData(
 ) : AbstractPropMetadata() {
 
     override fun getWriteStatement(objectNameContainThisProp: String): String {
-        return "buffer.writeShort(${enumClass.getSerializerObjectName()}.toId(${objectNameContainThisProp}.$name).toInt())"
+        return "buffer.writeShort(${enumClass.getSerializerObjectName()}" +
+                ".toId(${objectNameContainThisProp}.$name).toInt())"
     }
 
     override fun addImportForWrite(): List<String> {

@@ -154,29 +154,76 @@ object KSClassDecUtils {
     }
 
     private fun processMapProp(propDec: KSPropertyDeclaration, mapType: KSType): MapPropMetaData {
-
         val keyType = mapType.arguments[0].type!!.resolve()
         val valueType = mapType.arguments[1].type!!.resolve()
-        val primitiveKeyType = keyType.toPrimitiveType()
+
         val mapTypeAtSource = MapTypeAtSource.fromType(mapType)
-        //logger.warn("map type of ${propDec.simpleName.asString()} is $mapTypeAtSource")
-        return if (valueType.isPrimitive()) {
-            MapPrimitiveValueMetaData(
-                propDec.simpleName.asString(),
-                propDec,
-                primitiveKeyType,
-                valueType.toPrimitiveType(),
-                mapTypeAtSource
-            )
+
+
+        val keyClassDec = keyType.declaration as KSClassDeclaration
+
+        val valueClassDec = valueType.declaration as KSClassDeclaration
+
+
+        return if (keyClassDec.classKind == ClassKind.ENUM_CLASS) {
+            if (valueType.isPrimitive()) {
+                MapEnumKeyPrimitiveValuePropMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    keyClassDec,
+                    valueType.toPrimitiveType(),
+                    mapTypeAtSource
+                )
+            } else if (valueClassDec.classKind == ClassKind.ENUM_CLASS) {
+                MapEnumKeyEnumValue(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    keyClassDec,
+                    valueClassDec,
+                    mapTypeAtSource
+                )
+            } else {
+                MapEnumKeyObjectValuePropMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    keyClassDec,
+                    valueClassDec,
+                    mapTypeAtSource
+                )
+            }
+        } else if (keyType.isPrimitive()) {
+
+            val primitiveKeyType = keyType.toPrimitiveType()
+
+            if (valueClassDec.classKind == ClassKind.ENUM_CLASS) {
+                MapPrimitiveKeyEnumValue(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    primitiveKeyType,
+                    valueClassDec,
+                    mapTypeAtSource
+                )
+            } else if (valueType.isPrimitive()) {
+                MapPrimitiveKeyValueMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    primitiveKeyType,
+                    valueType.toPrimitiveType(),
+                    mapTypeAtSource
+                )
+            } else {
+                MapPrimitiveKeyObjectValueMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    primitiveKeyType,
+                    valueClassDec,
+                    mapTypeAtSource
+                )
+            }
         } else {
-            MapObjectValueMetaData(
-                propDec.simpleName.asString(),
-                propDec,
-                primitiveKeyType,
-                valueType.declaration as KSClassDeclaration,
-                mapTypeAtSource
-            )
+            throw IllegalArgumentException("impossible, review code")
         }
+
 
     }
 
