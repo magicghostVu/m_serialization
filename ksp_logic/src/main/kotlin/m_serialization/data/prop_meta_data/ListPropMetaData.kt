@@ -77,13 +77,19 @@ class ListPrimitivePropMetaData(
     ): String {
         val readStatement = StringBuilder()
 
-        val sizeVarName = "size${varNameToAssign}"
+        val varNameSuffix: String = if (declareNewVar) {
+            varNameToAssign
+        } else {
+            val localVarName = varNameToAssign.split(".")[1]
+            localVarName
+        }
 
+        val sizeVarName: String = "size$varNameSuffix"
 
         val typeParamsForCreateList =
             (propDec.type.resolve().arguments[0].type!!.resolve().declaration as KSClassDeclaration).simpleName.asString()
 
-        val listTmpName = "list$varNameToAssign"
+        val listTmpName = "list$varNameSuffix"
 
         readStatement.append("val $sizeVarName = ${bufferVarName}.readInt()\n")
 

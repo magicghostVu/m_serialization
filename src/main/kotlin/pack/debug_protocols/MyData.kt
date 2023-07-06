@@ -7,6 +7,7 @@ import java.util.TreeMap
 
 @MSerialization
 sealed class X(open val i: Int)
+
 @MSerialization
 class X1(override val i: Int) : X(i)
 
@@ -25,7 +26,10 @@ class MyData(val a: Int, val b: Int, val listInt: List<Long>, val listC: List<C>
 
 
 @MSerialization
-class C(val k: Int, val b: B, val listB: List<B>)
+class C(val k: Int, val b: B, val listB: List<B>) {
+    lateinit var c: List<String>
+    lateinit var map: Map<String, Int>
+}
 
 
 @MSerialization
