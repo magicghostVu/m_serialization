@@ -10,7 +10,10 @@ import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
 import m_serialization.data.class_metadata.GdGenClassMetaData
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
+import m_serialization.data.prop_meta_data.PrimitiveType
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
+import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitiveNotByteArray
+import m_serialization.data.prop_meta_data.PrimitiveType.Companion.toPrimitiveType
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
@@ -62,12 +65,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
 
-        if (!invoke) {
-            invoke = true
-        } else {
-            return emptyList()
-        }
-
         val allClassWillProcess = resolver.getSymbolsWithAnnotation(
             MSerialization::class
                 .qualifiedName
@@ -83,17 +80,16 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
         setAllClass
             .asSequence()
-            .filter { c ->
+            .map { c ->
                 if (c.classKind == ClassKind.ENUM_CLASS) {
-                    throw IllegalArgumentException("temporary not support enum class ${c.qualifiedName?.asString()}")
+                    throwErr("temporary not support enum class ${c.qualifiedName?.asString()}")
                 }
-                true
+                c
             }
             .map {
 
                 val numTypeParam = it.typeParameters.size
                 if (numTypeParam > 0) {
-                    //logger.error("class ${it.qualifiedName?.asString()} had type param, can not serializable")
                     throwErr("class ${it.qualifiedName?.asString()} had type param, can not serializable")
                 }
 
@@ -486,6 +482,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 val allElementValid: Boolean = when (typeGenericTypeSupport) {
                     GenericTypeSupport.LIST -> {
                         val classOfElement = type.arguments[0].type!!.resolve()
+                        if (classOfElement.isMarkedNullable) {
+                            throwErr("list prop $propName at $containerClassName had element nullable")
+                        }
                         classOfElement.isPrimitiveOrSerializable()
                     }
 
@@ -502,7 +501,14 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                             throwErr("map prop $propName at $containerClassName had value nullable")
                         }
 
-                        keyClass.isPrimitive() && valueClass.isPrimitiveOrSerializable()
+
+                        if (keyClass.isPrimitive()) {
+                            if (keyClass.toPrimitiveType() == PrimitiveType.BYTE_ARRAY) {
+                                throwErr("key element at prop $propName at $containerClassName can not be byte array")
+                            }
+                        }
+
+                        keyClass.isPrimitiveNotByteArray() && valueClass.isPrimitiveOrSerializable()
 
                     }
                 }

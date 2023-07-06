@@ -162,6 +162,26 @@ enum class PrimitiveType(val className: String) {
             return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readString()"
             else "$varNameToAssign = ${bufferVarName}.readString()"
         }
+    },
+
+
+    BYTE_ARRAY(ByteArray::class.qualifiedName!!) {
+        override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
+            return String.format(
+                "%s.writeByteArray(%s)",
+                bufferVarName,
+                varName
+            )
+        }
+
+        override fun readFromBufferExpression(
+            bufferVarName: String,
+            varNameToAssign: String,
+            declareNewVar: Boolean
+        ): String {
+            return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readByteArray()"
+            else "$varNameToAssign = ${bufferVarName}.readByteArray()"
+        }
     };
 
     abstract fun writeToBufferExpression(bufferVarName: String, varName: String): String;
@@ -188,6 +208,7 @@ enum class PrimitiveType(val className: String) {
                 FLOAT -> "Float"
                 LONG -> "Long"
                 STRING -> "String"
+                BYTE_ARRAY -> "ByteArray"
             }
         }
 
@@ -199,6 +220,11 @@ enum class PrimitiveType(val className: String) {
 
         fun KSType.isPrimitive(): Boolean {
             return allPrimitiveNameToPrimitiveType.containsKey(declaration.qualifiedName!!.asString())
+        }
+
+        fun KSType.isPrimitiveNotByteArray(): Boolean {
+            return (allPrimitiveNameToPrimitiveType.containsKey(declaration.qualifiedName!!.asString())
+                    && declaration.qualifiedName!!.asString() != BYTE_ARRAY.className)
         }
 
         fun KSType.toPrimitiveType(): PrimitiveType {
@@ -224,6 +250,12 @@ enum class PrimitiveType(val className: String) {
                         "m_serialization.utils.ByteBufUtils.writeString"
                     )
                 }
+
+                BYTE_ARRAY -> {
+                    listOf(
+                        "m_serialization.utils.ByteBufUtils.writeByteArray"
+                    )
+                }
             }
             return res
         }
@@ -245,6 +277,12 @@ enum class PrimitiveType(val className: String) {
                 STRING -> {
                     listOf(
                         "m_serialization.utils.ByteBufUtils.readString"
+                    )
+                }
+
+                BYTE_ARRAY -> {
+                    listOf(
+                        "m_serialization.utils.ByteBufUtils.readByteArray"
                     )
                 }
             }

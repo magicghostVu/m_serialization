@@ -2,21 +2,43 @@ package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import com.google.devtools.ksp.symbol.KSType
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
 import java.lang.StringBuilder
 
-sealed class MapPropMetaData() : AbstractPropMetadata() {
+enum class MapTypeAtSource(val fullName: String) {
+    ImmutableMap("kotlin.collections.Map"),
+    MMutableMap("kotlin.collections.MutableMap"),
+    MTreeMap("java.util.TreeMap");
+
+
+    companion object {
+        private val _tmpMap = MapTypeAtSource
+            .values()
+            .asSequence()
+            .associateBy { it.fullName }
+
+        fun fromType(typeAtDeclaration: KSType): MapTypeAtSource {
+            return _tmpMap.getValue(typeAtDeclaration.declaration.qualifiedName!!.asString())
+        }
+    }
+}
+
+
+sealed class MapPropMetaData(val mapTypeAtSource: MapTypeAtSource) : AbstractPropMetadata() {
     abstract val keyType: PrimitiveType
 }
+
 
 class MapPrimitiveValueMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     override val keyType: PrimitiveType,
-    val valueType: PrimitiveType
-) : MapPropMetaData() {
+    private val valueType: PrimitiveType,
+    mapTypeAtSource: MapTypeAtSource
+) : MapPropMetaData(mapTypeAtSource) {
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
         val statement = """
@@ -40,8 +62,15 @@ class MapPrimitiveValueMetaData(
             "val size$varNameToAssign = ${bufferVarName}.readInt()\n"
         )
 
+
+        val mapTypeWillCreate: String = when (mapTypeAtSource) {
+            MapTypeAtSource.ImmutableMap -> "mutableMapOf"
+            MapTypeAtSource.MMutableMap -> "mutableMapOf"
+            MapTypeAtSource.MTreeMap -> "TreeMap"
+        }
+
         readExpression.append(
-            "val tmpMap$varNameToAssign = mutableMapOf<${PrimitiveType.simpleName(keyType)},${
+            "val tmpMap$varNameToAssign = $mapTypeWillCreate<${PrimitiveType.simpleName(keyType)},${
                 PrimitiveType.simpleName(
                     valueType
                 )
@@ -72,6 +101,13 @@ class MapPrimitiveValueMetaData(
         val r = mutableSetOf<String>()
         r.addAll(PrimitiveType.addImportExpressionForRead(keyType))
         r.addAll(PrimitiveType.addImportExpressionForRead(valueType))
+        when (mapTypeAtSource) {
+            MapTypeAtSource.ImmutableMap -> {}
+            MapTypeAtSource.MMutableMap -> {}
+            MapTypeAtSource.MTreeMap -> {
+                r.add("java.util.TreeMap")
+            }
+        }
         return r.toList();
     }
 
@@ -87,8 +123,9 @@ class MapObjectValueMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     override val keyType: PrimitiveType,
-    val valueClassDec: KSClassDeclaration
-) : MapPropMetaData() {
+    private val valueClassDec: KSClassDeclaration,
+    mapTypeAtSource: MapTypeAtSource
+) : MapPropMetaData(mapTypeAtSource) {
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
         val statement = """
@@ -112,8 +149,16 @@ class MapObjectValueMetaData(
             "val size$varNameToAssign = ${bufferVarName}.readInt()\n"
         )
 
+
+        // create
+        val mapToCreate: String = when (mapTypeAtSource) {
+            MapTypeAtSource.ImmutableMap -> "mutableMapOf"
+            MapTypeAtSource.MMutableMap -> "mutableMapOf"
+            MapTypeAtSource.MTreeMap -> "TreeMap"
+        }
+
         readExpression.append(
-            "val tmpMap$varNameToAssign = mutableMapOf<${PrimitiveType.simpleName(keyType)},${valueClassDec.simpleName.asString()}>()\n"
+            "val tmpMap$varNameToAssign = $mapToCreate<${PrimitiveType.simpleName(keyType)},${valueClassDec.simpleName.asString()}>()\n"
         )
 
         val objectNameToCallRead = valueClassDec.getSerializerObjectName()
@@ -143,6 +188,13 @@ class MapObjectValueMetaData(
         res.add(valueClassDec.qualifiedName!!.asString())
         res.addAll(PrimitiveType.addImportExpressionForRead(keyType))
         res.addAll(valueClassDec.importSerializer())
+        when (mapTypeAtSource) {
+            MapTypeAtSource.ImmutableMap -> {}
+            MapTypeAtSource.MMutableMap -> {}
+            MapTypeAtSource.MTreeMap -> {
+                res.add("java.util.TreeMap")
+            }
+        }
         return res.toList()
     }
 

@@ -25,6 +25,7 @@ dependencies {
 
     // chạy code gen trong build time
     ksp(project(":ksp_logic"))
+    implementation(project(":m_serialization_annotation"))
 }
 
 tasks.test {
