@@ -58,3 +58,58 @@ function WriteBuffer() {
         return this.writeShort(value)
     }
 }
+
+function ReadBuffer(bytes) {
+    var pos = 0;
+    var dataView = new DataView(new Int8Array(bytes).buffer);
+    this.readByte = function () {
+        return dataView.getInt8(pos++);
+    }
+    this.readBool = function () {
+        return Boolean(dataView.getInt8(pos++))
+    }
+    this.readInt = function () {
+        var val = dataView.getInt32(pos)
+        pos += 4;
+        return val;
+    }
+    this.readShort = function () {
+        var val = dataView.getInt16(pos);
+        pos += 2;
+        return val;
+    }
+    this.readDouble = function () {
+        var val = dataView.getFloat64(pos);
+        pos += 8;
+        return val;
+    }
+    this.readFloat = function () {
+        var val = dataView.getFloat32(pos);
+        pos += 4;
+        return val;
+    }
+    this.readLong = function () {
+        var val = dataView.getFloat64(pos);
+        pos += 8;
+        return val;
+    }
+    this.readString = function () {
+        return textDecoder.decode(new Int8Array(this.readBytes()))
+    }
+    this.readBytes = function () {
+        var len = this.readSize() & 0xFFFF;
+        var val = bytes.slice(pos, pos + len);
+        pos += len;
+        return val;
+    }
+    this.readJavaClass = function () {
+        return this.readShort()
+    }
+    this.readEnum = function () {
+        return this.readShort()
+    }
+    this.readSize = function () {
+        return this.readShort()
+    }
+
+}
