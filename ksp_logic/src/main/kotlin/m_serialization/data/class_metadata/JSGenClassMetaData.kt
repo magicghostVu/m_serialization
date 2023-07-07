@@ -9,7 +9,6 @@ import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.ksp.toClassName
 import m_serialization.data.prop_meta_data.*
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
-import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
 import m_serialization.utils.KSClassDecUtils.getAllEnumEntryWithIndex
 import java.io.BufferedWriter
 
@@ -39,6 +38,37 @@ class JSGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
 
 sealed class JSElement() {
     abstract fun treeElementString(): String
+    fun jsDocType(type: AbstractPropMetadata): String{
+        return when(type){
+            is EnumPropMetaData -> type.enumClass.toClassName().toString()
+            is ListEnumPropMetaData -> "${type.enumClass.toClassName()}[]"
+            is ListObjectPropMetaData -> "${type.elementClass.toClassName()}[]"
+            is ListPrimitivePropMetaData -> "${primitiveJsDocType(type.type)}[]"
+            is MapEnumKeyEnumValue -> TODO()
+            is MapEnumKeyObjectValuePropMetaData -> TODO()
+            is MapEnumKeyPrimitiveValuePropMetaData -> TODO()
+            is MapPrimitiveKeyEnumValue -> TODO()
+            is MapPrimitiveKeyObjectValueMetaData -> TODO()
+            is MapPrimitiveKeyValueMetaData -> TODO()
+            is ObjectPropMetaData -> TODO()
+            is PrimitivePropMetaData -> TODO()
+        }
+    }
+
+    private fun primitiveJsDocType(type: PrimitiveType): String {
+        return when(type){
+            PrimitiveType.INT -> TODO()
+            PrimitiveType.SHORT -> TODO()
+            PrimitiveType.DOUBLE -> TODO()
+            PrimitiveType.BYTE -> TODO()
+            PrimitiveType.BOOL -> TODO()
+            PrimitiveType.FLOAT -> TODO()
+            PrimitiveType.LONG -> TODO()
+            PrimitiveType.STRING -> TODO()
+            PrimitiveType.BYTE_ARRAY -> TODO()
+        }
+    }
+
 }
 
 class JSClass(
@@ -192,7 +222,7 @@ class JSClass(
                     "function(${bufferVar()},${subObjVar()}){${
                         getZipPrimitive(it.keyType, bufferVar(), subObjVar())
                     }}," +
-                    "this.${rawFunName(it.valueClassDec,classToTag)}2.bind(this));"
+                    "this.${rawFunName(it.valueClassDec, classToTag)}2.bind(this));"
 
             is MapPrimitiveKeyEnumValue -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
                     "function(${bufferVar()},${subObjVar()}){${
@@ -238,7 +268,7 @@ class JSClass(
             }default: throw new Error(${errorType(classId, "javaClass")})}"
         else
             "return this.${rawFunName()}1(${
-                constructorProps.joinToString(",") { getExtractFunction(it,classToTag) }
+                constructorProps.joinToString(",") { getExtractFunction(it, classToTag) }
             })"
     }
 
@@ -278,6 +308,12 @@ class JSClass(
         }),create:${AbstractPropMetadata.serializerObjectNameSuffix}.${rawFunName()}1.bind(${
             AbstractPropMetadata.serializerObjectNameSuffix
         }),javaClass:$classId}"
+    }
+
+    fun writeClassJSDOC(file: BufferedWriter) {
+        file.write("/** @typedef {JavaClass} ${classDec.toClassName()}\n")
+        constructorProps.forEach { file.write("/** @property {${jsDocType(it)}} ${it.name}\n") }
+        file.write("*/")
     }
 
 }
@@ -321,6 +357,15 @@ class JSFile(val fileName: String) {
     }
 
     private fun writeFileStart(file: BufferedWriter) {
+
+        file.write("/** @typedef {Object} JavaClass \n")
+        file.write("* @property {number} javaClass */")
+
+        classes.forEach {
+            it.writeClassJSDOC(file)
+        }
+
+
         file.write("var ${AbstractPropMetadata.serializerObjectNameSuffix}={")
 
         file.write("$zipMapFunction:function($bufferVar, $objVar, $keyPushConsumer, $valuePushConsumer){")
