@@ -21,7 +21,8 @@ class ObjectPropMetaData(
 
     // import object serializer of this class
     override fun addImportForWrite(): List<String> {
-        return classDec.importSerializer()
+        return classDec.importSerializer() +
+                classDec.qualifiedName!!.asString()
     }
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
@@ -34,6 +35,7 @@ class ObjectPropMetaData(
     }
 
     override fun addImportForRead(): List<String> {
-        return classDec.importSerializer()
+        return classDec.importSerializer() +
+                classDec.qualifiedName!!.asString()
     }
 }
