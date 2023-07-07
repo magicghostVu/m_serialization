@@ -293,6 +293,17 @@ object KSClassDecUtils {
         return result
     }
 
+    fun KSClassDeclaration.getAllEnumEntryWithIndex(): List<Pair<String,Int>> {
+        val result = mutableListOf<Pair<String,Int>>()
+        declarations.forEach {
+            if (it is KSClassDeclaration) {
+                //logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
+                result.add(Pair(it.simpleName.asString(), result.size))
+            }
+        }
+        return result
+    }
+
 
     fun KSClassDeclaration.getFunctionNameWriteInternal(): String {
         return writeToInternal + simpleName.asString()
