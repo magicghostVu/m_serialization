@@ -9,6 +9,7 @@ import com.google.devtools.ksp.symbol.Modifier
 import m_serialization.data.prop_meta_data.*
 import m_serialization.data.prop_meta_data.PrimitiveType.*
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
+import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
 import java.io.OutputStream
 import java.util.*
 
@@ -34,7 +35,15 @@ class GdGenClassMetaData : ClassMetaData() {
     }
 
     override fun doGenCode(codeGenerator: CodeGenerator) {
-        val bufferClass = "ZfooByteBuffer"
+        if (classDec.modifiers.contains(Modifier.ENUM)) {
+            genEnum(codeGenerator)
+        } else {
+            genClass(codeGenerator)
+        }
+    }
+
+    private fun genClass(codeGenerator: CodeGenerator) {
+        val bufferClass = "StreamPeer"
         val isAbstract = isClassAbstract(classDec)
         val props = constructorProps + otherProps
         val classSig = getTypeSig(classDec)
@@ -46,14 +55,20 @@ class GdGenClassMetaData : ClassMetaData() {
                 "gd"
             )
         ).apply {
-            props.mapNotNull { prop ->
+            props.flatMap { prop ->
                 when (prop) {
-                    is ListObjectPropMetaData -> prop.elementClass
-                    is ListPrimitivePropMetaData -> null
-                    is MapObjectValueMetaData -> prop.valueClassDec
-                    is MapPrimitiveValueMetaData -> null
-                    is ObjectPropMetaData -> prop.classDec
-                    is PrimitivePropMetaData -> null
+                    is ListObjectPropMetaData -> listOf(prop.elementClass)
+                    is ListPrimitivePropMetaData -> listOf()
+                    is ObjectPropMetaData -> listOf(prop.classDec)
+                    is PrimitivePropMetaData -> listOf()
+                    is EnumPropMetaData -> listOf(prop.enumClass)
+                    is ListEnumPropMetaData -> listOf(prop.enumClass)
+                    is MapEnumKeyEnumValue -> listOf(prop.enumKey)
+                    is MapEnumKeyObjectValuePropMetaData -> listOf(prop.enumKey, prop.valueType)
+                    is MapEnumKeyPrimitiveValuePropMetaData -> listOf(prop.enumKey)
+                    is MapPrimitiveKeyEnumValue -> listOf(prop.enumValue)
+                    is MapPrimitiveKeyObjectValueMetaData -> listOf(prop.valueClassDec)
+                    is MapPrimitiveKeyValueMetaData -> listOf()
                 }
             }.toSet().forEach { classDec ->
                 val importName = getTypeSig(classDec)
@@ -90,12 +105,13 @@ class GdGenClassMetaData : ClassMetaData() {
                 )
             }
 
-
             line("class $classSig:")
             withTab {
                 if (parent != null) {
                     val parentDec = parent.resolve().declaration as KSClassDeclaration
                     line("extends ${getTypeSig(parentDec)}")
+                } else {
+                    line("extends 'res://m/IPacket.gd'")
                 }
                 val tag = protocolUniqueId
                 // declaration
@@ -103,63 +119,72 @@ class GdGenClassMetaData : ClassMetaData() {
                     line("var ${prop.name}: ${getTypeSig(prop)}")
                 }
                 // constructor
-                if (!isAbstract) {
+                if (!isAbstract && constructorProps.isNotEmpty()) {
                     line("")
                     val params = constructorProps.map { prop ->
-                        "${prop.name}_: ${getTypeSig(prop)}"
+                        "${prop.name}_"
                     }.joinToString(", ")
                     line("func _init($params):")
                     forWithTab(constructorProps) { prop ->
                         line("${prop.name} = ${prop.name}_")
                     }
                 }
+                // tag
+                line("")
+                run {
+                    line("func get_tag():")
+                    withTab {
+                        line("return $tag")
+                    }
+                }
                 // serialize
                 if (!isAbstract) {
                     line("")
-                    line("func write_to(buffer: $bufferClass):")
+                    line("func write_to(buffer: $bufferClass, with_tag: bool) -> void:")
                     withTab {
+                        line("if with_tag: buffer.put_16($tag)")
                         for (prop in props) {
                             val varName = prop.name
                             when (prop) {
                                 is ListObjectPropMetaData -> {
                                     line("# ListObjectPropMetaData")
-                                    line("buffer.writeInt($varName.size())")
+                                    line("buffer.put_u16($varName.size())")
                                     line("for e in $varName:")
                                     withTab {
                                         if (isClassAbstract(prop.elementClass)) {
-                                            line("e.write_with_tag(buffer)")
+                                            line("e.write_to(buffer, true)")
                                         } else {
-                                            line("e.write_to(buffer)")
+                                            line("e.write_to(buffer, false)")
                                         }
                                     }
                                 }
 
                                 is ListPrimitivePropMetaData -> {
                                     line("# ListPrimitivePropMetaData")
-                                    line("buffer.writeInt($varName.size())")
+                                    line("buffer.put_u16($varName.size())")
                                     line("for e in $varName:")
                                     withTab {
                                         bufferWritePrimitive(prop.type, "e")
                                     }
                                 }
 
-                                is MapObjectValueMetaData -> {
+                                is MapPrimitiveKeyObjectValueMetaData -> {
                                     line("# MapObjectValueMetaData")
-                                    line("buffer.writeInt($varName.size())")
+                                    line("buffer.put_u16($varName.size())")
                                     line("for key in $varName:")
                                     withTab {
                                         bufferWritePrimitive(prop.keyType, "key")
                                         if (isClassAbstract(prop.valueClassDec)) {
-                                            line("$varName[key].write_with_tag(buffer)")
+                                            line("$varName[key].write_to(buffer, true)")
                                         } else {
-                                            line("$varName[key].write_to(buffer)")
+                                            line("$varName[key].write_to(buffer, false)")
                                         }
                                     }
                                 }
 
-                                is MapPrimitiveValueMetaData -> {
+                                is MapPrimitiveKeyValueMetaData -> {
                                     line("# MapPrimitiveValueMetaData")
-                                    line("buffer.writeInt($varName.size())")
+                                    line("buffer.put_u16($varName.size())")
                                     line("for key in $varName:")
                                     withTab {
                                         bufferWritePrimitive(prop.keyType, "key")
@@ -169,20 +194,65 @@ class GdGenClassMetaData : ClassMetaData() {
 
                                 is ObjectPropMetaData ->
                                     if (isClassAbstract(prop.classDec)) {
-                                        line("$varName.write_with_tag(buffer)")
+                                        line("$varName.write_to(buffer, true)")
                                     } else {
-                                        line("$varName.write_to(buffer)")
+                                        line("$varName.write_to(buffer, false)")
                                     }
 
                                 is PrimitivePropMetaData ->
                                     bufferWritePrimitive(prop.type, varName)
+
+                                is EnumPropMetaData -> line("buffer.put_16($varName)")
+                                is ListEnumPropMetaData -> {
+                                    line("# ListEnumPropMetaData")
+                                    line("buffer.put_u16($varName.size())")
+                                    line("for e in $varName:")
+                                    withTab {
+                                        line("buffer.put_16(e)")
+                                    }
+                                }
+                                is MapEnumKeyEnumValue -> {
+                                    line("# MapEnumKeyEnumValue")
+                                    line("buffer.put_u16($varName.size())")
+                                    line("for key in $varName:")
+                                    withTab {
+                                        line("buffer.put_16(key)")
+                                        line("buffer.put_16($varName[key])")
+                                    }
+                                }
+                                is MapEnumKeyObjectValuePropMetaData -> {
+                                    line("# MapPrimitiveKeyEnumValue")
+                                    line("buffer.put_u16($varName.size())")
+                                    line("for key in $varName:")
+                                    withTab {
+                                        line("buffer.put_16(key)")
+                                        if (isClassAbstract(prop.valueType)) {
+                                            line("$varName[key].write_to(buffer, true)")
+                                        } else {
+                                            line("$varName[key].write_to(buffer, false)")
+                                        }
+                                    }
+                                }
+                                is MapEnumKeyPrimitiveValuePropMetaData -> {
+                                    line("# MapPrimitiveKeyEnumValue")
+                                    line("buffer.put_u16($varName.size())")
+                                    line("for key in $varName:")
+                                    withTab {
+                                        line("buffer.put_16(key)")
+                                        bufferWritePrimitive(prop.valueType, "$varName[key]")
+                                    }
+                                }
+                                is MapPrimitiveKeyEnumValue -> {
+                                    line("# MapPrimitiveKeyEnumValue")
+                                    line("buffer.put_u16($varName.size())")
+                                    line("for key in $varName:")
+                                    withTab {
+                                        bufferWritePrimitive(prop.keyType, "key")
+                                        line("buffer.put_16($varName[key])")
+                                    }
+                                }
                             }
                         }
-                    }
-                    line("func write_with_tag(buffer: $bufferClass):")
-                    withTab {
-                        line("buffer.writeShort($tag)")
-                        line("write_to(buffer)")
                     }
                 }
                 // deserialize
@@ -196,7 +266,7 @@ class GdGenClassMetaData : ClassMetaData() {
                             is ListObjectPropMetaData -> {
                                 line("# ListObjectPropMetaData")
                                 line("var $varName: $typeSig = []")
-                                line("$varName.resize(buffer.readInt())")
+                                line("$varName.resize(buffer.get_u16())")
                                 line("for i in $varName.size():")
                                 withTab {
                                     val elementSig = getTypeSig(prop.elementClass)
@@ -208,7 +278,7 @@ class GdGenClassMetaData : ClassMetaData() {
                             is ListPrimitivePropMetaData -> {
                                 line("# ListPrimitivePropMetaData")
                                 line("var $varName: $typeSig = []")
-                                line("$varName.resize(buffer.readInt())")
+                                line("$varName.resize(buffer.get_u16())")
                                 line("for i in $varName.size():")
                                 withTab {
                                     bufferReadPrimitive(prop.type, "val")
@@ -216,22 +286,21 @@ class GdGenClassMetaData : ClassMetaData() {
                                 }
                             }
 
-                            is MapObjectValueMetaData -> {
+                            is MapPrimitiveKeyObjectValueMetaData -> {
                                 line("# MapObjectValueMetaData")
                                 line("var $varName: $typeSig = {}")
-                                line("for i in buffer.readInt():")
+                                line("for i in buffer.get_u16():")
                                 withTab {
                                     bufferReadPrimitive(prop.keyType, "key")
                                     val valueSig = getTypeSig(prop.valueClassDec)
-                                    line("var val = $valueSig.read_${valueSig}_from(buffer)")
-                                    line("$varName[key] = val")
+                                    line("$varName[key] = $valueSig.read_${valueSig}_from(buffer)")
                                 }
                             }
 
-                            is MapPrimitiveValueMetaData -> {
+                            is MapPrimitiveKeyValueMetaData -> {
                                 line("# MapPrimitiveValueMetaData")
                                 line("var $varName: $typeSig = {}")
-                                line("for i in buffer.readInt():")
+                                line("for i in buffer.get_u16():")
                                 withTab {
                                     bufferReadPrimitive(prop.keyType, "key")
                                     bufferReadPrimitive(prop.keyType, "val")
@@ -246,6 +315,55 @@ class GdGenClassMetaData : ClassMetaData() {
 
                             is PrimitivePropMetaData ->
                                 bufferReadPrimitive(prop.type, varName)
+
+                            is EnumPropMetaData -> line("var $varName := buffer.get_16() as ${getTypeSig(prop.enumClass)}")
+                            is ListEnumPropMetaData -> {
+                                line("# ListEnumPropMetaData")
+                                line("var $varName: $typeSig = []")
+                                line("$varName.resize(buffer.get_u16())")
+                                line("for i in $varName.size():")
+                                withTab {
+                                    line("$varName[i] = buffer.get_16() as ${getTypeSig(prop.enumClass)}")
+                                }
+                            }
+                            is MapEnumKeyEnumValue -> {
+                                line("# MapEnumKeyPrimitiveValuePropMetaData")
+                                line("var $varName: $typeSig = {}")
+                                line("for i in buffer.get_u16():")
+                                withTab {
+                                    line("var key := buffer.get_16() as ${getTypeSig(prop.enumKey)}")
+                                    line("$varName[key] = buffer.get_16() as ${getTypeSig(prop.enumValue)}")
+                                }
+                            }
+                            is MapEnumKeyObjectValuePropMetaData -> {
+                                line("# MapEnumKeyPrimitiveValuePropMetaData")
+                                line("var $varName: $typeSig = {}")
+                                line("for i in buffer.get_u16():")
+                                withTab {
+                                    line("var key := buffer.get_16() as ${getTypeSig(prop.enumKey)}")
+                                    val valueSig = getTypeSig(prop.valueType)
+                                    line("$varName[key] = $valueSig.read_${valueSig}_from(buffer)")
+                                }
+                            }
+                            is MapEnumKeyPrimitiveValuePropMetaData -> {
+                                line("# MapEnumKeyPrimitiveValuePropMetaData")
+                                line("var $varName: $typeSig = {}")
+                                line("for i in buffer.get_u16():")
+                                withTab {
+                                    line("var key := buffer.get_16() as ${getTypeSig(prop.enumKey)}")
+                                    bufferReadPrimitive(prop.valueType, "val")
+                                    line("$varName[key] = val")
+                                }
+                            }
+                            is MapPrimitiveKeyEnumValue -> {
+                                line("# MapPrimitiveKeyEnumValue")
+                                line("var $varName: $typeSig = {}")
+                                line("for i in buffer.get_u16():")
+                                withTab {
+                                    bufferReadPrimitive(prop.keyType, "key")
+                                    line("$varName[key] = buffer.get_16() as ${getTypeSig(prop.enumValue)}")
+                                }
+                            }
                         }
                     }
                     // constructor
@@ -282,7 +400,7 @@ class GdGenClassMetaData : ClassMetaData() {
                         line("var t0 := '  '.repeat(tab)")
                         line("var t1 := t0 + '  '")
                         line("var t2 := t1 + '  '")
-                        line("return '$classSig {' + $params + '\\n' + t0 + '}'")
+                        line("return '$classSig {' + ${params.ifEmpty { "''" }} + '\\n' + t0 + '}'")
                     }
                     line("func _to_string():")
                     withTab {
@@ -293,22 +411,52 @@ class GdGenClassMetaData : ClassMetaData() {
         }
     }
 
+    private fun genEnum(codeGenerator: CodeGenerator) {
+        GdStream(
+            codeGenerator.createNewFile(
+                Dependencies(false),
+                classDec.packageName.asString(),
+                classDec.simpleName.asString(),
+                "gd"
+            )
+        ).apply {
+            line("enum ${classDec.simpleName.asString()} {")
+            forWithTab(classDec.getAllEnumEntrySimpleName()) {enumName ->
+                line("$enumName,")
+            }
+            line("}")
+            line("")
+        }
+    }
+
     private fun getStr(varName: String, prop: AbstractPropMetadata) = when (prop) {
         is ListObjectPropMetaData -> "'Array<${getTypeSig(prop.elementClass)}>(%s) [\\n%s%s\\n%s]' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.map(func(v): return v._to_string_with_tab(tab + 2)))), t1]"
         is ListPrimitivePropMetaData -> "'Array<${getTypeSig(prop.type)}>(%s) [\\n%s%s\\n%s]' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.map(func(v): return str(v)))), t1]"
-        is MapObjectValueMetaData -> "'Map<${getTypeSig(prop.keyType)}, ${getTypeSig(prop.valueClassDec)}>(%s) {\\n%s%s\\n%s}' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.keys().map(func(key): return '%s: %s' % [key, $varName[key]._to_string_with_tab(tab + 2)]))), t1]"
-        is MapPrimitiveValueMetaData -> "'Map<${getTypeSig(prop.keyType)}, ${getTypeSig(prop.valueType)}>(%s) {\\n%s%s\\n%s}' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.keys().map(func(key): return '%s: %s' % [key, str($varName[key])]))), t1]"
+        is MapPrimitiveKeyObjectValueMetaData -> "'Map<${getTypeSig(prop.keyType)}, ${getTypeSig(prop.valueClassDec)}>(%s) {\\n%s%s\\n%s}' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.keys().map(func(key): return '%s: %s' % [key, $varName[key]._to_string_with_tab(tab + 2)]))), t1]"
+        is MapPrimitiveKeyValueMetaData -> "'Map<${getTypeSig(prop.keyType)}, ${getTypeSig(prop.valueType)}>(%s) {\\n%s%s\\n%s}' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.keys().map(func(key): return '%s: %s' % [key, str($varName[key])]))), t1]"
         is ObjectPropMetaData -> "$varName._to_string_with_tab(tab + 1)"
         is PrimitivePropMetaData -> "str($varName)"
+        is EnumPropMetaData -> "str($varName)"
+        is ListEnumPropMetaData -> "'Array<${getTypeSig(prop.enumClass)}>(%s) [\\n%s%s\\n%s]' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.map(func(v): return str(v)))), t1]"
+        is MapEnumKeyEnumValue -> "'Map<${getTypeSig(prop.enumKey)}, ${getTypeSig(prop.enumValue)}>(%s) {\\n%s%s\\n%s}' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.keys().map(func(key): return '%s: %s' % [key, str($varName[key])]))), t1]"
+        is MapEnumKeyObjectValuePropMetaData -> "'Map<${getTypeSig(prop.enumKey)}, ${getTypeSig(prop.valueType)}>(%s) {\\n%s%s\\n%s}' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.keys().map(func(key): return '%s: %s' % [key, $varName[key]._to_string_with_tab(tab + 2)]))), t1]"
+        is MapEnumKeyPrimitiveValuePropMetaData -> "'Map<${getTypeSig(prop.enumKey)}, ${getTypeSig(prop.valueType)}>(%s) {\\n%s%s\\n%s}' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.keys().map(func(key): return '%s: %s' % [key, str($varName[key])]))), t1]"
+        is MapPrimitiveKeyEnumValue -> "'Map<${getTypeSig(prop.keyType)}, ${getTypeSig(prop.enumValue)}>(%s) {\\n%s%s\\n%s}' % [$varName.size(), t2, (',\\n' + t2).join(PackedStringArray($varName.keys().map(func(key): return '%s: %s' % [key, str($varName[key])]))), t1]"
     }
 
     private fun getTypeSig(prop: AbstractPropMetadata) = when (prop) {
         is ListObjectPropMetaData -> "Array[${getTypeSig(prop.elementClass)}]"
         is ListPrimitivePropMetaData -> "Array[${getTypeSig(prop.type)}]"
-        is MapObjectValueMetaData -> "Dictionary"
-        is MapPrimitiveValueMetaData -> "Dictionary"
+        is MapPrimitiveKeyObjectValueMetaData -> "Dictionary"
+        is MapPrimitiveKeyValueMetaData -> "Dictionary"
         is ObjectPropMetaData -> getTypeSig(prop.classDec)
         is PrimitivePropMetaData -> getTypeSig(prop.type)
+        is EnumPropMetaData -> getTypeSig(prop.enumClass)
+        is ListEnumPropMetaData -> "Array"
+        is MapEnumKeyEnumValue -> "Dictionary"
+        is MapEnumKeyObjectValuePropMetaData -> "Dictionary"
+        is MapEnumKeyPrimitiveValuePropMetaData -> "Dictionary"
+        is MapPrimitiveKeyEnumValue -> "Dictionary"
     }
 
     private fun getTypeSig(kclass: KSClassDeclaration) = kclass.simpleName.asString()
@@ -321,6 +469,12 @@ class GdGenClassMetaData : ClassMetaData() {
         FLOAT -> "float"
         LONG -> "int"
         STRING -> "String"
+        BYTE_ARRAY -> "PackedByteArray"
+    }
+
+    private fun name_join(name: String, prefix: String): String {
+        val alphaNumRegex = Regex("[^A-Za-z0-9 ]")
+        return alphaNumRegex.replace(name, "_") + prefix;
     }
 
     private fun GdStream.bufferReadPrimitive(
@@ -328,14 +482,24 @@ class GdGenClassMetaData : ClassMetaData() {
         varName: String,
     ) {
         when (varType) {
-            INT -> line("var $varName := buffer.readInt()")
-            SHORT -> line("var $varName := buffer.readShort()")
-            DOUBLE -> line("var $varName := buffer.readDouble()")
-            BYTE -> line("var $varName := buffer.readByte()")
-            BOOL -> line("var $varName := buffer.readBool()")
-            FLOAT -> line("var $varName := buffer.readFloat()")
-            LONG -> line("var $varName := buffer.readLong()")
-            STRING -> line("var $varName := buffer.readString()")
+            INT -> line("var $varName := buffer.get_32()")
+            SHORT -> line("var $varName := buffer.get_16()")
+            DOUBLE -> line("var $varName := buffer.get_double()")
+            BYTE -> line("var $varName := buffer.get_8()")
+            BOOL -> line("var $varName := buffer.get_8() != 0")
+            FLOAT -> line("var $varName := buffer.read_float()")
+            LONG -> line("var $varName := buffer.read_64()")
+            STRING -> {
+                val varNameLength = name_join(varName, "length")
+                line("var $varNameLength := buffer.get_u16()")
+                line("var $varName := PackedByteArray(buffer.get_data($varNameLength)[1]).get_string_from_utf8()")
+            }
+
+            BYTE_ARRAY -> {
+                val varNameSize = name_join(varName, "size")
+                line("var $varNameSize := buffer.get_u16()")
+                line("var $varName := buffer.get_data($varNameSize)[1] as PackedByteArray")
+            }
         }
     }
 
@@ -344,14 +508,24 @@ class GdGenClassMetaData : ClassMetaData() {
         varName: String,
     ) {
         when (varType) {
-            INT -> line("buffer.writeInt($varName)")
-            SHORT -> line("buffer.writeShort($varName)")
-            DOUBLE -> line("buffer.writeDouble($varName)")
-            BYTE -> line("buffer.writeByte($varName)")
-            BOOL -> line("buffer.writeBool($varName)")
-            FLOAT -> line("buffer.writeFloat($varName)")
-            LONG -> line("buffer.writeLong($varName)")
-            STRING -> line("buffer.writeString($varName)")
+            INT -> line("buffer.put_32($varName)")
+            SHORT -> line("buffer.put_16($varName)")
+            DOUBLE -> line("buffer.put_double($varName)")
+            BYTE -> line("buffer.put_8($varName)")
+            BOOL -> line("buffer.put_8($varName)")
+            FLOAT -> line("buffer.put_float($varName)")
+            LONG -> line("buffer.put_64($varName)")
+            STRING -> {
+                val varNameBytes = name_join(varName, "bytes")
+                line("var $varNameBytes = $varName.to_utf8_buffer()")
+                line("buffer.put_u16($varNameBytes.size())")
+                line("buffer.put_data($varNameBytes)")
+            }
+
+            BYTE_ARRAY -> {
+                line("buffer.put_u16($varName.size())")
+                line("buffer.put_data($varName)")
+            }
         }
     }
 
