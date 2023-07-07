@@ -17,7 +17,7 @@ class EnumPropMetaData(
     }
 
     override fun addImportForWrite(): List<String> {
-        return enumClass.importSerializer()
+        return enumClass.importSerializer() + enumClass.qualifiedName!!.asString()
     }
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
@@ -32,6 +32,6 @@ class EnumPropMetaData(
     }
 
     override fun addImportForRead(): List<String> {
-        return enumClass.importSerializer()
+        return enumClass.importSerializer() + enumClass.qualifiedName!!.asString()
     }
 }
