@@ -15,7 +15,7 @@ class MapPrimitiveValueMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     override val keyType: PrimitiveType,
-    private val valueType: PrimitiveType
+     val valueType: PrimitiveType
 ) : MapPropMetaData() {
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
@@ -87,7 +87,7 @@ class MapObjectValueMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     override val keyType: PrimitiveType,
-    private val valueClassDec: KSClassDeclaration
+     val valueClassDec: KSClassDeclaration
 ) : MapPropMetaData() {
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";

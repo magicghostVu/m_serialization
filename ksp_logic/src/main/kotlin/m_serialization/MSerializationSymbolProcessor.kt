@@ -7,6 +7,7 @@ import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
+import m_serialization.data.class_metadata.JSGenClassMetaData
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType
@@ -61,6 +62,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         logger.warn("init ksp logic")
     }
 
+    override fun finish() {
+        super.finish()
+        JSGenClassMetaData.save(env.codeGenerator)
+    }
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
 
@@ -227,6 +232,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
 
                 val kotlinCodeGen = KotlinGenClassMetaData(logger)
+                val jsCodeGen = JSGenClassMetaData(logger)
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
@@ -242,7 +248,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     classDecToUniqueTag
                 )
 
-                Pair(listOf(kotlinCodeGen), commonProp)
+                Pair(listOf(kotlinCodeGen, jsCodeGen), commonProp)
 
 
             }
