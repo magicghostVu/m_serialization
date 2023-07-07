@@ -2,15 +2,17 @@ package pack.debug_protocols
 
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
+import java.util.TreeMap
 
 
 @MSerialization
 sealed class X(open val i: Int)
+
 @MSerialization
 class X1(override val i: Int) : X(i)
 
 @MSerialization
-class NormalClass(val a: Int, val b: Int, val c: Int, val list: List<X>, val m: Map<String, X>)
+class NormalClass(val a: Int, val b: Int, val c: Int, val list: List<X>, val m: TreeMap<String, X>)
 
 @MSerialization
 class MyData(val a: Int, val b: Int, val listInt: List<Long>, val listC: List<C>) {
@@ -24,7 +26,10 @@ class MyData(val a: Int, val b: Int, val listInt: List<Long>, val listC: List<C>
 
 
 @MSerialization
-class C(val k: Int, val b: B, val listB: List<B>)
+class C(val k: Int, val b: B, val listB: List<B>) {
+    lateinit var c: List<String>
+    lateinit var map: Map<String, Int>
+}
 
 
 @MSerialization

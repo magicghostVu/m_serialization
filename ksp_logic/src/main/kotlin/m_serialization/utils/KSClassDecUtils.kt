@@ -1,10 +1,7 @@
 package m_serialization.utils
 
 import com.google.devtools.ksp.processing.KSPLogger
-import com.google.devtools.ksp.symbol.KSClassDeclaration
-import com.google.devtools.ksp.symbol.KSPropertyDeclaration
-import com.google.devtools.ksp.symbol.KSType
-import com.google.devtools.ksp.symbol.Modifier
+import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MTransient
 import m_serialization.data.prop_meta_data.*
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
@@ -98,7 +95,13 @@ object KSClassDecUtils {
 
             val propMetaData: AbstractPropMetadata = when (type.declaration.typeParameters.size) {
                 0 -> {// object prop
-                    processObjectProp(it, type)
+
+                    val classDecOfType = type.declaration as KSClassDeclaration
+                    if (classDecOfType.classKind == ClassKind.ENUM_CLASS) {
+                        processEnumProp(it, type, classDecOfType)
+                    } else {
+                        processObjectProp(it, type)
+                    }
                 }
 
                 1 -> {// list prop
@@ -129,43 +132,114 @@ object KSClassDecUtils {
                 listType
             )
         } else {
-            ListObjectPropMetaData(
-                propDec.simpleName.asString(),
-                propDec,
-                elementType.declaration as KSClassDeclaration,
-                listType
-            )
+
+            val classDecOfElement = elementType.declaration as KSClassDeclaration
+            if (classDecOfElement.classKind == ClassKind.ENUM_CLASS) {
+                ListEnumPropMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    classDecOfElement,
+                    listType
+                )
+            } else {
+                ListObjectPropMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    classDecOfElement,
+                    listType
+                )
+            }
+
         }
     }
 
     private fun processMapProp(propDec: KSPropertyDeclaration, mapType: KSType): MapPropMetaData {
-
         val keyType = mapType.arguments[0].type!!.resolve()
         val valueType = mapType.arguments[1].type!!.resolve()
 
-        val primitiveKeyType = keyType.toPrimitiveType()
+        val mapTypeAtSource = MapTypeAtSource.fromType(mapType)
 
-        return if (valueType.isPrimitive()) {
-            MapPrimitiveValueMetaData(
-                propDec.simpleName.asString(),
-                propDec,
-                primitiveKeyType,
-                valueType.toPrimitiveType()
-            )
+
+        val keyClassDec = keyType.declaration as KSClassDeclaration
+
+        val valueClassDec = valueType.declaration as KSClassDeclaration
+
+
+        return if (keyClassDec.classKind == ClassKind.ENUM_CLASS) {
+            if (valueType.isPrimitive()) {
+                MapEnumKeyPrimitiveValuePropMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    keyClassDec,
+                    valueType.toPrimitiveType(),
+                    mapTypeAtSource
+                )
+            } else if (valueClassDec.classKind == ClassKind.ENUM_CLASS) {
+                MapEnumKeyEnumValue(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    keyClassDec,
+                    valueClassDec,
+                    mapTypeAtSource
+                )
+            } else {
+                MapEnumKeyObjectValuePropMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    keyClassDec,
+                    valueClassDec,
+                    mapTypeAtSource
+                )
+            }
+        } else if (keyType.isPrimitive()) {
+
+            val primitiveKeyType = keyType.toPrimitiveType()
+
+            if (valueClassDec.classKind == ClassKind.ENUM_CLASS) {
+                MapPrimitiveKeyEnumValue(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    primitiveKeyType,
+                    valueClassDec,
+                    mapTypeAtSource
+                )
+            } else if (valueType.isPrimitive()) {
+                MapPrimitiveKeyValueMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    primitiveKeyType,
+                    valueType.toPrimitiveType(),
+                    mapTypeAtSource
+                )
+            } else {
+                MapPrimitiveKeyObjectValueMetaData(
+                    propDec.simpleName.asString(),
+                    propDec,
+                    primitiveKeyType,
+                    valueClassDec,
+                    mapTypeAtSource
+                )
+            }
         } else {
-            MapObjectValueMetaData(
-                propDec.simpleName.asString(),
-                propDec,
-                primitiveKeyType,
-                valueType.declaration as KSClassDeclaration
-            )
+            throw IllegalArgumentException("impossible, review code")
         }
+
 
     }
 
     private fun processObjectProp(propDec: KSPropertyDeclaration, objectType: KSType): ObjectPropMetaData {
         return ObjectPropMetaData(propDec.simpleName.asString(), propDec, objectType.declaration as KSClassDeclaration)
     }
+
+
+    private fun processEnumProp(
+        propDec: KSPropertyDeclaration,
+        objectType: KSType,
+        enumClass: KSClassDeclaration
+    ): EnumPropMetaData {
+        return EnumPropMetaData(propDec.simpleName.asString(), propDec, enumClass)
+    }
+
 
     fun KSClassDeclaration.getSerializerObjectName(): String {
         return this.simpleName.asString() + AbstractPropMetadata.serializerObjectNameSuffix
@@ -206,6 +280,19 @@ object KSClassDecUtils {
         }
         return result.toList()
     }
+
+
+    fun KSClassDeclaration.getAllEnumEntrySimpleName(): List<String> {
+        val result = mutableListOf<String>()
+        declarations.forEach {
+            if (it is KSClassDeclaration) {
+                //logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
+                result.add(it.simpleName.asString())
+            }
+        }
+        return result
+    }
+
 
     fun KSClassDeclaration.getFunctionNameWriteInternal(): String {
         return writeToInternal + simpleName.asString()

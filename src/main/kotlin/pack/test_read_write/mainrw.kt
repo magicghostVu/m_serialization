@@ -11,7 +11,4 @@ class BClass(override val a:Int):AClass(a)
 @MSerialization
 class CClass(val value:List<AClass>, val v2:List<Int> , val V3:Map<String, BClass>)
 fun main() {
-
-
-
 }
