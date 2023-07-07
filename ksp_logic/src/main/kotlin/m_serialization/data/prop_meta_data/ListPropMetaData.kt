@@ -158,11 +158,25 @@ class ListObjectPropMetaData(
     }
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
+
+
+
+
+
+
         val readStatement = StringBuilder()
-        val sizeVarName = "size${varNameToAssign}"
+
+        val varNameSuffix: String = if (declareNewVar) {
+            varNameToAssign
+        } else {
+            val localVarName = varNameToAssign.split(".")[1]
+            localVarName
+        }
+
+        val sizeVarName = "size${varNameSuffix}"
         val typeParamsForCreateList = elementClass.simpleName.asString()
 
-        val listTmpName = "list$varNameToAssign"
+        val listTmpName = "list$varNameSuffix"
 
         readStatement.append("val $sizeVarName = ${bufferVarName}.readShort().toInt()\n")
 
@@ -240,10 +254,18 @@ class ListEnumPropMetaData(
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
         val readStatement = StringBuilder()
-        val sizeVarName = "size${varNameToAssign}"
+
+        val varNameSuffix: String = if (declareNewVar) {
+            varNameToAssign
+        } else {
+            val localVarName = varNameToAssign.split(".")[1]
+            localVarName
+        }
+
+        val sizeVarName = "size${varNameSuffix}"
         val typeParamsForCreateList = enumClass.simpleName.asString()
 
-        val listTmpName = "list$varNameToAssign"
+        val listTmpName = "list$varNameSuffix"
 
         readStatement.append("val $sizeVarName = ${bufferVarName}.readShort().toInt()\n")
 
