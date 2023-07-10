@@ -419,10 +419,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     private fun verifySealedClass(classDec: KSClassDeclaration) {
 
-        // không chứa sealed
-        // nếu là open thì không được
-        // nếu là abstract thì không được
-        // nếu là interface thì không được
+        // nếu không chứa sealed thì
+        // không được là open class
+        // không được là abstract class
+        // không được là interface
 
         val className = classDec.qualifiedName?.asString()
         if (!classDec.modifiers.contains(Modifier.SEALED)) {
@@ -437,6 +437,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
 
         } else {
+
+            if (classDec.classKind == ClassKind.INTERFACE) {
+                throwErr("class ${classDec.qualifiedName!!.asString()} is interface, this is temporary not supported")
+            }
+
             val allDirectChild = classDec.getSealedSubclasses()
             val childNotSerializable = allDirectChild
                 .filter {
