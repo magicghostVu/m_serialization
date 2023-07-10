@@ -501,7 +501,7 @@ class MapPrimitiveKeyEnumValue(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     override val keyType: PrimitiveType,
-    private val enumValue: KSClassDeclaration,
+    val enumValue: KSClassDeclaration,
     mapTypeAtSource: MapTypeAtSource
 ) : MapPrimitiveKeyPropMetaData(mapTypeAtSource) {
     override fun getWriteStatement(objectNameContainThisProp: String): String {

@@ -2,6 +2,7 @@ package m_serialization.utils
 
 import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.*
+import com.squareup.kotlinpoet.ksp.toClassName
 import m_serialization.annotations.MTransient
 import m_serialization.data.prop_meta_data.*
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
@@ -309,6 +310,15 @@ object KSClassDecUtils {
         return writeToInternal + simpleName.asString()
     }
 
+    fun KSClassDeclaration.getSuperClass(): KSType {
+        return this.superTypes.first {  !it.javaClass.isInterface }.resolve()
+    }
+    fun KSClassDeclaration.getSuperClassNameJS():String{
+       val sup = this.getSuperClass()
+        if(sup.toClassName().toString() == "kotlin.Any")
+            return "JavaClass"
+        return sup.toClassName().toString();
+    }
 
     // nó sẽ gọi hàm writeToInternal của class đó
     val writeTo = "writeTo"// người dùng call, và là extension function

@@ -8,8 +8,12 @@ import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.ksp.toClassName
 import m_serialization.data.prop_meta_data.*
+import m_serialization.utils.GraphUtils
+import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getAllEnumEntryWithIndex
+import m_serialization.utils.KSClassDecUtils.getSuperClass
+import m_serialization.utils.KSClassDecUtils.getSuperClassNameJS
 import java.io.BufferedWriter
 
 class JSGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
@@ -38,34 +42,35 @@ class JSGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
 
 sealed class JSElement() {
     abstract fun treeElementString(): String
-    fun jsDocType(type: AbstractPropMetadata): String{
-        return when(type){
+    abstract fun jsDocTree(): String
+    fun jsDocType(type: AbstractPropMetadata): String {
+        return when (type) {
+            is PrimitivePropMetaData -> primitiveJsDocType(type.type)
+            is ObjectPropMetaData -> type.classDec.toClassName().toString()
             is EnumPropMetaData -> type.enumClass.toClassName().toString()
             is ListEnumPropMetaData -> "${type.enumClass.toClassName()}[]"
             is ListObjectPropMetaData -> "${type.elementClass.toClassName()}[]"
             is ListPrimitivePropMetaData -> "${primitiveJsDocType(type.type)}[]"
-            is MapEnumKeyEnumValue -> TODO()
-            is MapEnumKeyObjectValuePropMetaData -> TODO()
-            is MapEnumKeyPrimitiveValuePropMetaData -> TODO()
-            is MapPrimitiveKeyEnumValue -> TODO()
-            is MapPrimitiveKeyObjectValueMetaData -> TODO()
-            is MapPrimitiveKeyValueMetaData -> TODO()
-            is ObjectPropMetaData -> TODO()
-            is PrimitivePropMetaData -> TODO()
+            is MapEnumKeyEnumValue -> "Map<${type.enumKey.toClassName()},${type.enumValue.toClassName()}>"
+            is MapEnumKeyObjectValuePropMetaData -> "Map<${type.enumKey.toClassName()},${type.valueType.toClassName()}>"
+            is MapEnumKeyPrimitiveValuePropMetaData -> "Map<${type.enumKey.toClassName()},${primitiveJsDocType(type.valueType)}>"
+            is MapPrimitiveKeyEnumValue -> "Map<${primitiveJsDocType(type.keyType)},${type.enumValue.toClassName()}>"
+            is MapPrimitiveKeyObjectValueMetaData -> "Map<${primitiveJsDocType(type.keyType)},${type.valueClassDec.toClassName()}>"
+            is MapPrimitiveKeyValueMetaData -> "Map<${primitiveJsDocType(type.keyType)},${primitiveJsDocType(type.valueType)}>"
         }
     }
 
     private fun primitiveJsDocType(type: PrimitiveType): String {
-        return when(type){
-            PrimitiveType.INT -> TODO()
-            PrimitiveType.SHORT -> TODO()
-            PrimitiveType.DOUBLE -> TODO()
-            PrimitiveType.BYTE -> TODO()
-            PrimitiveType.BOOL -> TODO()
-            PrimitiveType.FLOAT -> TODO()
-            PrimitiveType.LONG -> TODO()
-            PrimitiveType.STRING -> TODO()
-            PrimitiveType.BYTE_ARRAY -> TODO()
+        return when (type) {
+            PrimitiveType.SHORT,
+            PrimitiveType.DOUBLE,
+            PrimitiveType.BYTE,
+            PrimitiveType.FLOAT,
+            PrimitiveType.LONG,
+            PrimitiveType.INT -> "number"
+            PrimitiveType.BOOL -> "boolean"
+            PrimitiveType.STRING -> "string"
+            PrimitiveType.BYTE_ARRAY -> "number[]"
         }
     }
 
@@ -288,15 +293,19 @@ class JSClass(
 
     fun writeClassFunction(file: BufferedWriter, classDecToUniqueTag: MutableMap<String, Short>) {
         file.write(
-            "${rawFunName()}0:function(${bufferVar()}){${classExtractFunction(classDecToUniqueTag)}},\n"
+            "${rawFunName()}0:function(${bufferVar()}){${
+                classExtractFunction(
+                    classDecToUniqueTag
+                )
+            }},"
         )
         file.write("${rawFunName()}1:function(${
             constructorProps.joinToString(",") { it.name }
         }){return {javaClass:${classId}${if (constructorProps.isNotEmpty()) "," else ""}${
             constructorProps.joinToString(",") { "${it.name}:${it.name}" }
-        }}},\n")
+        }}},")
         file.write(
-            "${rawFunName()}2:function(${bufferVar()}, ${objVar()}){${classZipFunction(classDecToUniqueTag)}},\n"
+            "${rawFunName()}2:function(${bufferVar()}, ${objVar()}){${classZipFunction(classDecToUniqueTag)}},"
         )
     }
 
@@ -310,10 +319,19 @@ class JSClass(
         }),javaClass:$classId}"
     }
 
+    override fun jsDocTree(): String {
+        return "/** @type {${classDec.toClassName()}${AbstractPropMetadata.serializerObjectNameSuffix}}*/"
+    }
+
     fun writeClassJSDOC(file: BufferedWriter) {
-        file.write("/** @typedef {JavaClass} ${classDec.toClassName()}\n")
-        constructorProps.forEach { file.write("/** @property {${jsDocType(it)}} ${it.name}\n") }
-        file.write("*/")
+        file.write("/** @typedef {${classDec.getSuperClassNameJS()}} ${classDec.toClassName()}\n")
+        constructorProps.forEach { file.write("* @property {${jsDocType(it)}} ${it.name}\n") }
+        file.write("*/\n")
+        file.write("/**@typedef {Object} ${classDec.toClassName()}${AbstractPropMetadata.serializerObjectNameSuffix}\n");
+        file.write(" * @property {function(JBuffer):${classDec.toClassName()}} extract\n")
+        file.write(" * @property {function(JBuffer,${classDec.toClassName()}):void} zip\n")
+        file.write(" * @property {function(${constructorProps.joinToString { jsDocType(it) }}):${classDec.toClassName()}} create\n")
+        file.write("*/\n")
     }
 
 }
@@ -321,6 +339,10 @@ class JSClass(
 class JSEnum(var classDec: KSClassDeclaration) : JSElement() {
     override fun treeElementString(): String {
         return "{${classDec.getAllEnumEntryWithIndex().joinToString { "${it.first}:${it.second}" }}}"
+    }
+
+    override fun jsDocTree(): String {
+        return ""
     }
 
 }
@@ -378,12 +400,20 @@ class JSFile(val fileName: String) {
 
     private fun writeFileEnd(file: BufferedWriter) {
         file.write("arrayToMap:function(_m,_o){ _m[_o.key]=_o.value;return _m}")
-        file.write("};")
+        file.write("};\n")
         file.write("${AbstractPropMetadata.serializerObjectNameSuffix}.instance=${createTree(classTree)}")
     }
 
     private fun createTree(classTree: TreeNode): String {
-        return if (classTree.type == null) "{${classTree.child.entries.joinToString { "${it.key}: ${createTree(it.value)}" }}}"
+        return if (classTree.type == null) "{${
+            classTree.child.entries.joinToString {
+                "${if(it.value.type==null) "" else it.value.type!!.jsDocTree()}${it.key}: ${
+                    createTree(
+                        it.value
+                    )
+                }"
+            }
+        }}"
         else classTree.type!!.treeElementString()
     }
 
