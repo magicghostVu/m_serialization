@@ -15,7 +15,11 @@ import java.util.*
 
 class GdStream(private val stream: OutputStream, private val indent: Int = 0) {
     fun line(line: String) {
-        stream.write(("\t".repeat(indent) + line + "\n").toByteArray())
+        if (line.isEmpty()) {
+            stream.write("\n".toByteArray())
+        } else {
+            stream.write(("\t".repeat(indent) + line + "\n").toByteArray())
+        }
     }
 
     fun withTab(f: GdStream.() -> Unit) {
@@ -132,7 +136,7 @@ class GdGenClassMetaData : ClassMetaData() {
                 // tag
                 line("")
                 run {
-                    line("func get_tag():")
+                    line("func get_tag() -> int:")
                     withTab {
                         line("return $tag")
                     }
@@ -211,6 +215,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                         line("buffer.put_16(e)")
                                     }
                                 }
+
                                 is MapEnumKeyEnumValue -> {
                                     line("# MapEnumKeyEnumValue")
                                     line("buffer.put_u16($varName.size())")
@@ -220,6 +225,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                         line("buffer.put_16($varName[key])")
                                     }
                                 }
+
                                 is MapEnumKeyObjectValuePropMetaData -> {
                                     line("# MapPrimitiveKeyEnumValue")
                                     line("buffer.put_u16($varName.size())")
@@ -233,6 +239,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                         }
                                     }
                                 }
+
                                 is MapEnumKeyPrimitiveValuePropMetaData -> {
                                     line("# MapPrimitiveKeyEnumValue")
                                     line("buffer.put_u16($varName.size())")
@@ -242,6 +249,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                         bufferWritePrimitive(prop.valueType, "$varName[key]")
                                     }
                                 }
+
                                 is MapPrimitiveKeyEnumValue -> {
                                     line("# MapPrimitiveKeyEnumValue")
                                     line("buffer.put_u16($varName.size())")
@@ -326,6 +334,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                     line("$varName[i] = buffer.get_16() as ${getTypeSig(prop.enumClass)}")
                                 }
                             }
+
                             is MapEnumKeyEnumValue -> {
                                 line("# MapEnumKeyPrimitiveValuePropMetaData")
                                 line("var $varName: $typeSig = {}")
@@ -335,6 +344,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                     line("$varName[key] = buffer.get_16() as ${getTypeSig(prop.enumValue)}")
                                 }
                             }
+
                             is MapEnumKeyObjectValuePropMetaData -> {
                                 line("# MapEnumKeyPrimitiveValuePropMetaData")
                                 line("var $varName: $typeSig = {}")
@@ -345,6 +355,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                     line("$varName[key] = $valueSig.read_${valueSig}_from(buffer)")
                                 }
                             }
+
                             is MapEnumKeyPrimitiveValuePropMetaData -> {
                                 line("# MapEnumKeyPrimitiveValuePropMetaData")
                                 line("var $varName: $typeSig = {}")
@@ -355,6 +366,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                     line("$varName[key] = val")
                                 }
                             }
+
                             is MapPrimitiveKeyEnumValue -> {
                                 line("# MapPrimitiveKeyEnumValue")
                                 line("var $varName: $typeSig = {}")
@@ -421,7 +433,7 @@ class GdGenClassMetaData : ClassMetaData() {
             )
         ).apply {
             line("enum ${classDec.simpleName.asString()} {")
-            forWithTab(classDec.getAllEnumEntrySimpleName()) {enumName ->
+            forWithTab(classDec.getAllEnumEntrySimpleName()) { enumName ->
                 line("$enumName,")
             }
             line("}")
