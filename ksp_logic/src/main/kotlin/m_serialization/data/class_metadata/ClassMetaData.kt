@@ -36,7 +36,7 @@ sealed class ClassMetaData(
     }
 
     override fun hashCode(): Int {
-        logger.warn("gen hash for ${classDec.qualifiedName!!.asString()}")
+        //logger.warn("gen hash for ${classDec.qualifiedName!!.asString()}")
         return mToString().hashCode()
     }
 }
