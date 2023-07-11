@@ -283,7 +283,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         val allHash = classDecToHash.values.toIntArray()
         logger.warn("all hash is ${allHash.contentToString()}")
         val protocolVersion = allHash.contentHashCode()
-
+        JSGenClassMetaData.outputFile.setVersion(protocolVersion);
         val allGenProtocolVersion = listOf<IGenFileProtocolVersion>(
             KotlinGenProtocolVersion()
         )

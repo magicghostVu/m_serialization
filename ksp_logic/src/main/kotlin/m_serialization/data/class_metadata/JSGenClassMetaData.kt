@@ -2,17 +2,13 @@ package m_serialization.data.class_metadata
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.ksp.toClassName
 import m_serialization.data.prop_meta_data.*
-import m_serialization.utils.GraphUtils
-import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getAllEnumEntryWithIndex
-import m_serialization.utils.KSClassDecUtils.getSuperClass
 import m_serialization.utils.KSClassDecUtils.getSuperClassNameJS
 import java.io.BufferedWriter
 
@@ -366,6 +362,8 @@ class JSFile(val fileName: String) {
     private var enums = mutableListOf<JSEnum>()
     private var classDecToUniqueTag: MutableMap<String, Short> = mutableMapOf()
     private var classTree = TreeNode()
+    private var version = 0
+    private var setVersion = false
     fun writeTo(file: BufferedWriter) {
         writeFileStart(file)
 
@@ -399,7 +397,7 @@ class JSFile(val fileName: String) {
     }
 
     private fun writeFileEnd(file: BufferedWriter) {
-        file.write("arrayToMap:function(_m,_o){ _m[_o.key]=_o.value;return _m}")
+        file.write("arrayToMap:function(_m,_o){ _m[_o.key]=_o.value;return _m},version=${version}")
         file.write("};\n")
         file.write("${AbstractPropMetadata.serializerObjectNameSuffix}.instance=${createTree(classTree)}")
     }
@@ -444,6 +442,13 @@ class JSFile(val fileName: String) {
         if (!node.child.containsKey(name))
             node.child[name] = TreeNode()
         node.child[name]?.type = element
+    }
+
+    fun setVersion(protocolVersion: Int) {
+        if(this.setVersion)
+            return
+        this.version = protocolVersion
+        this.setVersion = true
     }
 
 }
