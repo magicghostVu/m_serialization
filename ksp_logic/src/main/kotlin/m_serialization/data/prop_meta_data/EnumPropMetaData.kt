@@ -34,4 +34,8 @@ class EnumPropMetaData(
     override fun addImportForRead(): List<String> {
         return enumClass.importSerializer() + enumClass.qualifiedName!!.asString()
     }
+
+    override fun mtoString(): String {
+        return enumClass.simpleName.asString()
+    }
 }

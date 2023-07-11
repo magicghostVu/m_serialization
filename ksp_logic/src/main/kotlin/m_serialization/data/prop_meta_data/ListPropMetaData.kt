@@ -131,6 +131,10 @@ class ListPrimitivePropMetaData(
         }
         return l + f
     }
+
+    override fun mtoString(): String {
+        return "list<${PrimitiveType.simpleName(type)}>"
+    }
 }
 
 // if element class is sealed so insert unique tag otherwise not
@@ -215,6 +219,10 @@ class ListObjectPropMetaData(
     override fun addImportForWrite(): List<String> {
         return elementClass.importSerializer() + elementClass.qualifiedName!!.asString()
     }
+
+    override fun mtoString(): String {
+        return "list<${elementClass.simpleName.asString()}>"
+    }
 }
 
 class ListEnumPropMetaData(
@@ -292,5 +300,9 @@ class ListEnumPropMetaData(
 
     override fun addImportForRead(): List<String> {
         return enumClass.importSerializer() + enumClass.qualifiedName!!.asString()
+    }
+
+    override fun mtoString(): String {
+        return "list<${enumClass.simpleName.asString()}>"
     }
 }

@@ -15,6 +15,8 @@ sealed class AbstractPropMetadata() {
 
     abstract fun addImportForRead(): List<String>
 
+    abstract fun mtoString():String
+
     companion object {
 
         //suffix name of object will be generated

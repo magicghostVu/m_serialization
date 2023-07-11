@@ -12,6 +12,10 @@ class ObjectPropMetaData(
     val classDec: KSClassDeclaration// class được khai báo trong code
 ) : AbstractPropMetadata() {
 
+    override fun mtoString(): String {
+        return classDec.qualifiedName!!.asString()
+    }
+
     // check class khai báo
     // nếu là sealed thì gọi serializer của lớp base
     override fun getWriteStatement(objectNameContainThisProp: String): String {

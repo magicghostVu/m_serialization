@@ -10,6 +10,8 @@ import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
 import m_serialization.data.class_metadata.JSGenClassMetaData
 import m_serialization.data.class_metadata.GdGenClassMetaData
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
+import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
+import m_serialization.data.gen_protocol_version.KotlinGenProtocolVersion
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
@@ -30,6 +32,8 @@ import java.io.StringWriter
 import java.io.Writer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.util.*
+import kotlin.collections.LinkedHashMap
 
 
 enum class GenericTypeSupport {
@@ -41,7 +45,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     private val logger = env.logger
 
-    private var invoke = false
+    private var protocolVersionGenerated = false
 
 
     // tạm thời chưa hỗ trợ object làm key
@@ -165,25 +169,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
 
 
-        /*allEnumClass.forEach {
-
-            val allEntry = it.declarations
-            val listName = allEntry
-                .map { e -> e::class }
-                .toList()
-
-
-            logger.warn("list name is $listName")
-
-
-            //val allChild = it.
-            *//*val allName = allChild
-                .map { entry ->
-                    entry.simpleName.asString()
-                }.toList()
-            logger.warn("class ${it.qualifiedName?.asString()} had $allName")*//*
-        }*/
-
         exportDependenciesGraph(graph)
         val allCycle = GraphUtils.findCycle(graph)
         if (allCycle.isNotEmpty()) {
@@ -210,7 +195,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 Pair(it, tag)
             }.toMap()
 
-        setAllClass
+
+        val classDecToHash = mutableMapOf<KSClassDeclaration, Int>()
+
+
+        val allCodeGen = setAllClass
             .asSequence()
             .map {
                 Pair(it, it.getAllPropMetaData())
@@ -249,8 +238,8 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 }
 
 
-                val kotlinCodeGen = KotlinGenClassMetaData(logger)
-                val jsCodeGen = JSGenClassMetaData(logger)
+                val kotlinCodeGen = KotlinGenClassMetaData()
+                val jsCodeGen = JSGenClassMetaData()
                 val gdCodeGen = GdGenClassMetaData()
 
 
@@ -267,24 +256,51 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     classDecToUniqueTag
                 )
 
-                Pair(listOf(kotlinCodeGen, gdCodeGen,jsCodeGen), commonProp)
+                Pair(listOf(kotlinCodeGen, gdCodeGen, jsCodeGen), commonProp)
 
 
             }
-            .forEach { (list, commonProp) ->
+            .flatMap { (list, commonProp) ->
                 list.forEach { metaCodeGen ->
-
                     metaCodeGen.constructorProps = commonProp.constructorProps
                     metaCodeGen.otherProps = commonProp.otherProps
                     metaCodeGen.classDec = commonProp.classDec
                     metaCodeGen.protocolUniqueId = commonProp.protocolUniqueId
                     metaCodeGen.classDec = commonProp.classDec
                     metaCodeGen.globalUniqueTag = commonProp.globalUniqueTag
-
-
-                    metaCodeGen.doGenCode(env.codeGenerator)
+                    metaCodeGen.logger = logger
+                    classDecToHash.computeIfAbsent(commonProp.classDec) {
+                        metaCodeGen.hashCode()
+                    }
                 }
+                list.asSequence()
+            }.toList()
+
+
+        // add other code gen protocol version here
+
+
+        val allHash = classDecToHash.values.toIntArray()
+        logger.warn("all hash is ${allHash.contentToString()}")
+        val protocolVersion = allHash.contentHashCode()
+
+        val allGenProtocolVersion = listOf<IGenFileProtocolVersion>(
+            KotlinGenProtocolVersion()
+        )
+
+        allCodeGen.forEach {
+            it.doGenCode(env.codeGenerator)
+        }
+
+        // gen code for protocol version based all hash
+        if (!protocolVersionGenerated) {
+            // todo: gen file protocol version
+            allGenProtocolVersion.forEach {
+                it.genFileProtocolVersion(env.codeGenerator, protocolVersion)
             }
+            protocolVersionGenerated = true
+        }
+
         return emptyList()
     }
 

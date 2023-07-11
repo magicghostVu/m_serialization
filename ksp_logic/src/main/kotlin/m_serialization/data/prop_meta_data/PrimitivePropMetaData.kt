@@ -24,4 +24,8 @@ class PrimitivePropMetaData(
     override fun addImportForRead(): List<String> {
         return PrimitiveType.addImportExpressionForRead(type)
     }
+
+    override fun mtoString(): String {
+        return PrimitiveType.simpleName(type)
+    }
 }

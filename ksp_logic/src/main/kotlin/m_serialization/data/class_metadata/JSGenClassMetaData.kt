@@ -16,7 +16,7 @@ import m_serialization.utils.KSClassDecUtils.getSuperClass
 import m_serialization.utils.KSClassDecUtils.getSuperClassNameJS
 import java.io.BufferedWriter
 
-class JSGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
+class JSGenClassMetaData() : ClassMetaData() {
     companion object {
         var outputFile = JSFile(AbstractPropMetadata.serializerObjectNameSuffix)
         fun save(codeGenerator: CodeGenerator) {
@@ -35,7 +35,7 @@ class JSGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
             outputFile.addEnum(JSEnum(classDec))
         else
             outputFile.addClass(JSClass(protocolUniqueId, classDec, constructorProps))
-        logger.warn("$protocolUniqueId ${classDec.toClassName().toString()}")
+        //logger.warn("$protocolUniqueId ${classDec.toClassName().toString()}")
     }
 
 }
