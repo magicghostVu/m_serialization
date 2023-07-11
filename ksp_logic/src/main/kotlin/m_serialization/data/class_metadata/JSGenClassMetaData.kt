@@ -342,7 +342,7 @@ class JSEnum(var classDec: KSClassDeclaration) : JSElement() {
     }
 
     override fun jsDocTree(): String {
-        return ""
+        return "/** @Enum {number} */"
     }
 
 }
