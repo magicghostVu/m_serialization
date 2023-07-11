@@ -67,6 +67,7 @@ class MapEnumKeyPrimitiveValuePropMetaData(
         val l = mutableListOf<String>()
         l.addAll(enumKey.importSerializer())
         l.addAll(PrimitiveType.addImportExpressionForWrite(valueType))
+        l.add(enumKey.qualifiedName!!.asString())
         return l;
     }
 
@@ -123,6 +124,7 @@ class MapEnumKeyPrimitiveValuePropMetaData(
         val r = mutableListOf<String>()
         r.addAll(enumKey.importSerializer())
         r.addAll(PrimitiveType.addImportExpressionForRead(valueType))
+        r.add(enumKey.qualifiedName!!.asString())
         return r;
     }
 }
@@ -153,7 +155,10 @@ class MapEnumKeyObjectValuePropMetaData(
     }
 
     override fun addImportForWrite(): List<String> {
-        return enumKey.importSerializer() + valueType.importSerializer()
+        return enumKey.importSerializer() +
+                valueType.importSerializer() +
+                enumKey.qualifiedName!!.asString() +
+                valueType.qualifiedName!!.asString()
     }
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
@@ -406,7 +411,7 @@ class MapPrimitiveKeyObjectValueMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
     override val keyType: PrimitiveType,
-     val valueClassDec: KSClassDeclaration,
+    val valueClassDec: KSClassDeclaration,
     mapTypeAtSource: MapTypeAtSource
 ) : MapPrimitiveKeyPropMetaData(mapTypeAtSource) {
     override fun getWriteStatement(objectNameContainThisProp: String): String {
@@ -492,6 +497,7 @@ class MapPrimitiveKeyObjectValueMetaData(
         val list = mutableListOf<String>()
         list.addAll(PrimitiveType.addImportExpressionForWrite(keyType))
         list.addAll(valueClassDec.importSerializer())
+        list.add(valueClassDec.qualifiedName!!.asString())
         return list
     }
 }
@@ -575,7 +581,7 @@ class MapPrimitiveKeyEnumValue(
     }
 
     override fun addImportForRead(): List<String> {
-        return PrimitiveType.addImportExpressionForWrite(keyType) +
+        return PrimitiveType.addImportExpressionForRead(keyType) +
                 enumValue.importSerializer() +
                 enumValue.qualifiedName!!.asString()
     }

@@ -8,6 +8,7 @@ import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
 import m_serialization.data.class_metadata.JSGenClassMetaData
+import m_serialization.data.class_metadata.GdGenClassMetaData
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType
@@ -17,7 +18,6 @@ import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
 import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
-
 import m_serialization.utils.KSClassDecUtils.getAllPropMetaData
 import org.apache.commons.lang3.mutable.MutableShort
 import org.jgrapht.graph.DefaultDirectedGraph
@@ -251,6 +251,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
                 val kotlinCodeGen = KotlinGenClassMetaData(logger)
                 val jsCodeGen = JSGenClassMetaData(logger)
+                val gdCodeGen = GdGenClassMetaData()
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
@@ -266,7 +267,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     classDecToUniqueTag
                 )
 
-                Pair(listOf(kotlinCodeGen, jsCodeGen), commonProp)
+                Pair(listOf(kotlinCodeGen, gdCodeGen,jsCodeGen), commonProp)
 
 
             }
@@ -278,6 +279,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     metaCodeGen.classDec = commonProp.classDec
                     metaCodeGen.protocolUniqueId = commonProp.protocolUniqueId
                     metaCodeGen.classDec = commonProp.classDec
+                    metaCodeGen.globalUniqueTag = commonProp.globalUniqueTag
 
 
                     metaCodeGen.doGenCode(env.codeGenerator)
@@ -423,10 +425,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     private fun verifySealedClass(classDec: KSClassDeclaration) {
 
-        // không chứa sealed
-        // nếu là open thì không được
-        // nếu là abstract thì không được
-        // nếu là interface thì không được
+        // nếu không chứa sealed thì
+        // không được là open class
+        // không được là abstract class
+        // không được là interface
 
         val className = classDec.qualifiedName?.asString()
         if (!classDec.modifiers.contains(Modifier.SEALED)) {
@@ -441,6 +443,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
 
         } else {
+
+            if (classDec.classKind == ClassKind.INTERFACE) {
+                throwErr("class ${classDec.qualifiedName!!.asString()} is interface, this is temporary not supported")
+            }
+
             val allDirectChild = classDec.getSealedSubclasses()
             val childNotSerializable = allDirectChild
                 .filter {

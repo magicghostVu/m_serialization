@@ -159,10 +159,16 @@ class ListObjectPropMetaData(
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
         val readStatement = StringBuilder()
-        val sizeVarName = "size${varNameToAssign}"
+        val varNameSuffix: String = if (declareNewVar) {
+            varNameToAssign
+        } else {
+            val localVarName = varNameToAssign.split(".")[1]
+            localVarName
+        }
+        val sizeVarName = "size${varNameSuffix}"
         val typeParamsForCreateList = elementClass.simpleName.asString()
 
-        val listTmpName = "list$varNameToAssign"
+        val listTmpName = "list$varNameSuffix"
 
         readStatement.append("val $sizeVarName = ${bufferVarName}.readShort().toInt()\n")
 
@@ -198,18 +204,16 @@ class ListObjectPropMetaData(
     }
 
     override fun addImportForRead(): List<String> {
-        val packageName = elementClass.packageName.asString()
-        val t = listOf(
-            "${packageName}.${elementClass.getSerializerObjectName()}"
-        )
+        //val packageName = elementClass.packageName.asString()
+        val t = elementClass.importSerializer()
         val importIfLinkedList = if (listTypeAtSource() == ListTypeAtSource.MLinkedList) {
             listOf("java.util.LinkedList")
         } else emptyList()
-        return t + importIfLinkedList
+        return t + importIfLinkedList + elementClass.qualifiedName!!.asString()
     }
 
     override fun addImportForWrite(): List<String> {
-        return elementClass.importSerializer()
+        return elementClass.importSerializer() + elementClass.qualifiedName!!.asString()
     }
 }
 
@@ -235,15 +239,23 @@ class ListEnumPropMetaData(
     }
 
     override fun addImportForWrite(): List<String> {
-        return enumClass.importSerializer()
+        return enumClass.importSerializer() + enumClass.qualifiedName!!.asString()
     }
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
         val readStatement = StringBuilder()
-        val sizeVarName = "size${varNameToAssign}"
+
+        val varNameSuffix: String = if (declareNewVar) {
+            varNameToAssign
+        } else {
+            val localVarName = varNameToAssign.split(".")[1]
+            localVarName
+        }
+
+        val sizeVarName = "size${varNameSuffix}"
         val typeParamsForCreateList = enumClass.simpleName.asString()
 
-        val listTmpName = "list$varNameToAssign"
+        val listTmpName = "list$varNameSuffix"
 
         readStatement.append("val $sizeVarName = ${bufferVarName}.readShort().toInt()\n")
 
@@ -279,6 +291,6 @@ class ListEnumPropMetaData(
     }
 
     override fun addImportForRead(): List<String> {
-        return enumClass.importSerializer()
+        return enumClass.importSerializer() + enumClass.qualifiedName!!.asString()
     }
 }

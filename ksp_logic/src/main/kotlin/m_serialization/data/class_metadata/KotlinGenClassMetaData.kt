@@ -12,7 +12,6 @@ import com.squareup.kotlinpoet.ksp.writeTo
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
-import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
 import m_serialization.utils.KSClassDecUtils.getFunctionNameWriteInternal
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.importSerializer

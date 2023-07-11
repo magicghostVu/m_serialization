@@ -11,10 +11,16 @@ fun main() {
 
 
 @MSerialization
-class EnumContain(val e: MyEnum)
+class EnumContain(val e: MyEnum) {
+    var y: List<MyEnum> = emptyList()
+}
 
 @MSerialization
-class MListEnum(val list: List<MyEnum>)
+class MListEnum(val list: List<MyEnum>) {
+    var ll = mutableListOf<EnumContain>()
+    var kk = mutableListOf<EnumContain>()
+    var map = mutableMapOf<Int, EnumContain>()
+}
 
 @MSerialization
 enum class MyEnum {
