@@ -328,8 +328,8 @@ class JSClass(
         constructorProps.forEach { file.write("* @property {${jsDocType(it)}} ${it.name}\n") }
         file.write("*/\n")
         file.write("/**@typedef {Object} ${classDec.toClassName()}${AbstractPropMetadata.serializerObjectNameSuffix}\n");
-        file.write(" * @property {function(JBuffer):${classDec.toClassName()}} extract\n")
-        file.write(" * @property {function(JBuffer,${classDec.toClassName()}):void} zip\n")
+        file.write(" * @property {function(JReadBuffer):${classDec.toClassName()}} extract\n")
+        file.write(" * @property {function(JWriteBuffer,${classDec.toClassName()}):void} zip\n")
         file.write(" * @property {function(${constructorProps.joinToString { jsDocType(it) }}):${classDec.toClassName()}} create\n")
         file.write("*/\n")
     }
