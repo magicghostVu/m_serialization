@@ -18,7 +18,7 @@ import m_serialization.utils.KSClassDecUtils.importSerializer
 
 
 // mỗi class được đánh dấu là m_serialization sẽ sinh ra một object này
-class KotlinGenClassMetaData(val logger: KSPLogger) : ClassMetaData() {
+class KotlinGenClassMetaData() : ClassMetaData() {
 
 
     override fun doGenCode(codeGenerator: CodeGenerator) {

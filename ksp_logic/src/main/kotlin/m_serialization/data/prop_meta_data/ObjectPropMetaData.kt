@@ -9,8 +9,12 @@ import m_serialization.utils.KSClassDecUtils.importSerializer
 class ObjectPropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
-    private val classDec: KSClassDeclaration// class được khai báo trong code
+    val classDec: KSClassDeclaration// class được khai báo trong code
 ) : AbstractPropMetadata() {
+
+    override fun mtoString(): String {
+        return classDec.qualifiedName!!.asString()
+    }
 
     // check class khai báo
     // nếu là sealed thì gọi serializer của lớp base
@@ -21,7 +25,8 @@ class ObjectPropMetaData(
 
     // import object serializer of this class
     override fun addImportForWrite(): List<String> {
-        return classDec.importSerializer()
+        return classDec.importSerializer() +
+                classDec.qualifiedName!!.asString()
     }
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
@@ -34,6 +39,7 @@ class ObjectPropMetaData(
     }
 
     override fun addImportForRead(): List<String> {
-        return classDec.importSerializer()
+        return classDec.importSerializer() +
+                classDec.qualifiedName!!.asString()
     }
 }

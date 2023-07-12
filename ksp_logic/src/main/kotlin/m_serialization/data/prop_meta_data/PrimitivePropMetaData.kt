@@ -5,7 +5,7 @@ import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 class PrimitivePropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
-    private val type: PrimitiveType
+    val type: PrimitiveType
 ) : AbstractPropMetadata() {
 
     override fun getWriteStatement(objectNameContainThisProp: String): String {
@@ -23,5 +23,9 @@ class PrimitivePropMetaData(
 
     override fun addImportForRead(): List<String> {
         return PrimitiveType.addImportExpressionForRead(type)
+    }
+
+    override fun mtoString(): String {
+        return PrimitiveType.simpleName(type)
     }
 }

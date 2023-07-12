@@ -6,20 +6,20 @@ import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
-import m_serialization.annotations.TestEnum
 import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
+import m_serialization.data.class_metadata.JSGenClassMetaData
+import m_serialization.data.class_metadata.GdGenClassMetaData
 import m_serialization.data.class_metadata.KotlinGenClassMetaData
+import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
+import m_serialization.data.gen_protocol_version.KotlinGenProtocolVersion
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
-import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitiveNotByteArray
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.toPrimitiveType
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
 import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
-
-import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
 import m_serialization.utils.KSClassDecUtils.getAllPropMetaData
 import org.apache.commons.lang3.mutable.MutableShort
 import org.jgrapht.graph.DefaultDirectedGraph
@@ -32,6 +32,8 @@ import java.io.StringWriter
 import java.io.Writer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
+import java.util.*
+import kotlin.collections.LinkedHashMap
 
 
 enum class GenericTypeSupport {
@@ -43,7 +45,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     private val logger = env.logger
 
-    private var invoke = false
+    private var protocolVersionGenerated = false
 
 
     // tạm thời chưa hỗ trợ object làm key
@@ -64,6 +66,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         logger.warn("init ksp logic")
     }
 
+    override fun finish() {
+        super.finish()
+        JSGenClassMetaData.save(env.codeGenerator)
+    }
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
 
@@ -163,25 +169,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
 
 
-        /*allEnumClass.forEach {
-
-            val allEntry = it.declarations
-            val listName = allEntry
-                .map { e -> e::class }
-                .toList()
-
-
-            logger.warn("list name is $listName")
-
-
-            //val allChild = it.
-            *//*val allName = allChild
-                .map { entry ->
-                    entry.simpleName.asString()
-                }.toList()
-            logger.warn("class ${it.qualifiedName?.asString()} had $allName")*//*
-        }*/
-
         exportDependenciesGraph(graph)
         val allCycle = GraphUtils.findCycle(graph)
         if (allCycle.isNotEmpty()) {
@@ -208,7 +195,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 Pair(it, tag)
             }.toMap()
 
-        setAllClass
+
+        val classDecToHash = mutableMapOf<KSClassDeclaration, Int>()
+
+
+        val allCodeGen = setAllClass
             .asSequence()
             .map {
                 Pair(it, it.getAllPropMetaData())
@@ -247,7 +238,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 }
 
 
-                val kotlinCodeGen = KotlinGenClassMetaData(logger)
+                val kotlinCodeGen = KotlinGenClassMetaData()
+                val jsCodeGen = JSGenClassMetaData()
+                val gdCodeGen = GdGenClassMetaData()
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
@@ -263,23 +256,51 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     classDecToUniqueTag
                 )
 
-                Pair(listOf(kotlinCodeGen), commonProp)
+                Pair(listOf(kotlinCodeGen, gdCodeGen, jsCodeGen), commonProp)
 
 
             }
-            .forEach { (list, commonProp) ->
+            .flatMap { (list, commonProp) ->
                 list.forEach { metaCodeGen ->
-
                     metaCodeGen.constructorProps = commonProp.constructorProps
                     metaCodeGen.otherProps = commonProp.otherProps
                     metaCodeGen.classDec = commonProp.classDec
                     metaCodeGen.protocolUniqueId = commonProp.protocolUniqueId
                     metaCodeGen.classDec = commonProp.classDec
-
-
-                    metaCodeGen.doGenCode(env.codeGenerator)
+                    metaCodeGen.globalUniqueTag = commonProp.globalUniqueTag
+                    metaCodeGen.logger = logger
+                    classDecToHash.computeIfAbsent(commonProp.classDec) {
+                        metaCodeGen.hashCode()
+                    }
                 }
+                list.asSequence()
+            }.toList()
+
+
+        // add other code gen protocol version here
+
+
+        val allHash = classDecToHash.values.toIntArray()
+        logger.warn("all hash is ${allHash.contentToString()}")
+        val protocolVersion = allHash.contentHashCode()
+        JSGenClassMetaData.outputFile.setVersion(protocolVersion);
+        val allGenProtocolVersion = listOf<IGenFileProtocolVersion>(
+            KotlinGenProtocolVersion()
+        )
+
+        allCodeGen.forEach {
+            it.doGenCode(env.codeGenerator)
+        }
+
+        // gen code for protocol version based all hash
+        if (!protocolVersionGenerated) {
+            // todo: gen file protocol version
+            allGenProtocolVersion.forEach {
+                it.genFileProtocolVersion(env.codeGenerator, protocolVersion)
             }
+            protocolVersionGenerated = true
+        }
+
         return emptyList()
     }
 
@@ -420,10 +441,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     private fun verifySealedClass(classDec: KSClassDeclaration) {
 
-        // không chứa sealed
-        // nếu là open thì không được
-        // nếu là abstract thì không được
-        // nếu là interface thì không được
+        // nếu không chứa sealed thì
+        // không được là open class
+        // không được là abstract class
+        // không được là interface
 
         val className = classDec.qualifiedName?.asString()
         if (!classDec.modifiers.contains(Modifier.SEALED)) {
@@ -438,6 +459,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
 
         } else {
+
+            if (classDec.classKind == ClassKind.INTERFACE) {
+                throwErr("class ${classDec.qualifiedName!!.asString()} is interface, this is temporary not supported")
+            }
+
             val allDirectChild = classDec.getSealedSubclasses()
             val childNotSerializable = allDirectChild
                 .filter {
