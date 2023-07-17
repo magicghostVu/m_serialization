@@ -311,7 +311,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                 line("for i in buffer.get_u16():")
                                 withTab {
                                     bufferReadPrimitive(prop.keyType, "key")
-                                    bufferReadPrimitive(prop.keyType, "val")
+                                    bufferReadPrimitive(prop.valueType, "val")
                                     line("$varName[key] = val")
                                 }
                             }
@@ -499,8 +499,8 @@ class GdGenClassMetaData : ClassMetaData() {
             DOUBLE -> line("var $varName := buffer.get_double()")
             BYTE -> line("var $varName := buffer.get_8()")
             BOOL -> line("var $varName := buffer.get_8() != 0")
-            FLOAT -> line("var $varName := buffer.read_float()")
-            LONG -> line("var $varName := buffer.read_64()")
+            FLOAT -> line("var $varName := buffer.get_float()")
+            LONG -> line("var $varName := buffer.get_64()")
             STRING -> {
                 val varNameLength = name_join(varName, "length")
                 line("var $varNameLength := buffer.get_u16()")
