@@ -400,8 +400,17 @@ class GdGenClassMetaData : ClassMetaData() {
                     line("breakpoint")
                     line("return null")
                 }
+
                 // utils
                 run {
+                    line("")
+                    line("static func read_${classSig}_from_bytes(bytes: PackedByteArray, big_endian := true) -> $classSig:")
+                    withTab {
+                        line("var buffer := StreamPeerBuffer.new()")
+                        line("buffer.data_array = bytes")
+                        line("buffer.big_endian = big_endian")
+                        line("return read_${classSig}_from(buffer)")
+                    }
                     line("")
                     line("func _to_string_with_tab(tab: int) -> String:")
                     val params = props.map { prop ->
