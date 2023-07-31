@@ -2,7 +2,6 @@ package m_serialization.data.class_metadata
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.*
@@ -129,6 +128,24 @@ class KotlinGenClassMetaData() : ClassMetaData() {
     }
 
 
+    private fun genFuncReadFromNullable(typeName: TypeName): FunSpec {
+        val typeReturn = typeName.copy(true)
+        val funReadNullable = FunSpec
+            .builder(AbstractPropMetadata.readFromNullableFuncName)
+            .returns(typeReturn)
+            .addParameter(
+                ParameterSpec.builder("buffer", byteBufTypeName).build()
+            )
+
+        funReadNullable.addStatement("val isNull = buffer.readByte().toInt() == 0;")
+        funReadNullable.addStatement("if(isNull) return null;")
+        funReadNullable.addStatement("else return readFrom(buffer);")
+
+
+        return funReadNullable.build()
+    }
+
+
     private fun genDeserializer(typeName: TypeName): Pair<List<FunSpec>, Set<String>> {
 
 
@@ -172,11 +189,14 @@ class KotlinGenClassMetaData() : ClassMetaData() {
             funcRead.addStatement(whenExpression.toString())
 
             funcRead.addStatement("return result\n")
-            Pair(listOf(funcRead.build()), emptySet())
+
+
+            // todo: gen thêm func readFromNullable
+
+
+            Pair(listOf(funcRead.build(), genFuncReadFromNullable(typeName)), emptySet())
         } else {
             val readPropInConstructor = StringBuilder()
-            //var indexMark = 0
-
 
             val allImport = mutableSetOf<String>()
 
@@ -217,7 +237,7 @@ class KotlinGenClassMetaData() : ClassMetaData() {
 
 
             funcRead.addStatement("return result;")
-            Pair(listOf(funcRead.build()), allImport)
+            Pair(listOf(funcRead.build(), genFuncReadFromNullable(typeName)), allImport)
         }
 
     }

@@ -24,6 +24,7 @@ sealed class AbstractPropMetadata() {
         const val serializerObjectNameSuffix = "MSerializer";
 
         const val readFromFuncName = "readFrom"
+        const val readFromNullableFuncName = "readFromNullable"
 
 
     }

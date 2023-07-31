@@ -9,7 +9,8 @@ import m_serialization.utils.KSClassDecUtils.importSerializer
 class ObjectPropMetaData(
     override val name: String,
     override val propDec: KSPropertyDeclaration,
-    val classDec: KSClassDeclaration// class được khai báo trong code
+    val classDec: KSClassDeclaration,// class được khai báo trong code
+    val nullable: Boolean
 ) : AbstractPropMetadata() {
 
     override fun mtoString(): String {
@@ -20,7 +21,22 @@ class ObjectPropMetaData(
     // nếu là sealed thì gọi serializer của lớp base
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer"
-        return classDec.getWriteObjectStatement(bufferVarName, "${objectNameContainThisProp}.${name}")
+        val rBuilder = StringBuilder()
+        val readExpression = classDec.getWriteObjectStatement(bufferVarName, "${objectNameContainThisProp}.${name}")
+
+        if (nullable) {
+            rBuilder.append("if(${objectNameContainThisProp}.${name} == null){\n")
+            rBuilder.append("${bufferVarName}.writeByte(0);\n")
+            rBuilder.append("}\n")
+            rBuilder.append("\nelse{\n")
+            rBuilder.append("${bufferVarName}.writeByte(1)\n")
+            rBuilder.append(readExpression).append("\n")
+            rBuilder.append("}\n")
+        } else {
+            rBuilder.append(readExpression)
+                .append("\n")
+        }
+        return rBuilder.toString()
     }
 
     // import object serializer of this class
@@ -31,10 +47,18 @@ class ObjectPropMetaData(
 
     override fun getReadStatement(bufferVarName: String, varNameToAssign: String, declareNewVar: Boolean): String {
         val serializerObjectName = classDec.getSerializerObjectName()
-        return if (declareNewVar) {
-            "val $varNameToAssign = ${serializerObjectName}.${readFromFuncName}($bufferVarName)"
+
+
+        val functionNameWillCall = if (nullable) {
+            readFromNullableFuncName
         } else {
-            "$varNameToAssign = ${serializerObjectName}.${readFromFuncName}($bufferVarName)"
+            readFromFuncName
+        }
+
+        return if (declareNewVar) {
+            "val $varNameToAssign = ${serializerObjectName}.${functionNameWillCall}($bufferVarName)"
+        } else {
+            "$varNameToAssign = ${serializerObjectName}.${functionNameWillCall}($bufferVarName)"
         }
     }
 

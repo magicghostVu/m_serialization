@@ -101,6 +101,10 @@ object KSClassDecUtils {
                     if (classDecOfType.classKind == ClassKind.ENUM_CLASS) {
                         processEnumProp(it, type, classDecOfType)
                     } else {
+                        /*val nullable = type.isMarkedNullable
+                        if (nullable) {
+                            logger.warn("prop ${it.simpleName.asString()} at ${this.qualifiedName!!.asString()} nullable")
+                        }*/
                         processObjectProp(it, type)
                     }
                 }
@@ -229,7 +233,14 @@ object KSClassDecUtils {
     }
 
     private fun processObjectProp(propDec: KSPropertyDeclaration, objectType: KSType): ObjectPropMetaData {
-        return ObjectPropMetaData(propDec.simpleName.asString(), propDec, objectType.declaration as KSClassDeclaration)
+
+
+        return ObjectPropMetaData(
+            propDec.simpleName.asString(),
+            propDec,
+            objectType.declaration as KSClassDeclaration,
+            objectType.isMarkedNullable
+        )
     }
 
 
@@ -294,8 +305,8 @@ object KSClassDecUtils {
         return result
     }
 
-    fun KSClassDeclaration.getAllEnumEntryWithIndex(): List<Pair<String,Int>> {
-        val result = mutableListOf<Pair<String,Int>>()
+    fun KSClassDeclaration.getAllEnumEntryWithIndex(): List<Pair<String, Int>> {
+        val result = mutableListOf<Pair<String, Int>>()
         declarations.forEach {
             if (it is KSClassDeclaration) {
                 //logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
@@ -311,11 +322,12 @@ object KSClassDecUtils {
     }
 
     fun KSClassDeclaration.getSuperClass(): KSType {
-        return this.superTypes.first {  !it.javaClass.isInterface }.resolve()
+        return this.superTypes.first { !it.javaClass.isInterface }.resolve()
     }
-    fun KSClassDeclaration.getSuperClassNameJS():String{
-       val sup = this.getSuperClass()
-        if(sup.toClassName().toString() == "kotlin.Any")
+
+    fun KSClassDeclaration.getSuperClassNameJS(): String {
+        val sup = this.getSuperClass()
+        if (sup.toClassName().toString() == "kotlin.Any")
             return "JavaClass"
         return sup.toClassName().toString();
     }
