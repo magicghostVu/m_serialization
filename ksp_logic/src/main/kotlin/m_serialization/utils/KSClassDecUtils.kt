@@ -78,7 +78,11 @@ object KSClassDecUtils {
     fun KSClassDeclaration.getAllPropMetaData(): Map<String, AbstractPropMetadata> {
         val allPropWillAnalyze = getAllProperties()
             .filter {
-                it.hasBackingField
+                if (this.modifiers.contains(Modifier.SEALED)) {
+                    true
+                } else {
+                    it.hasBackingField
+                }
             }
             .filter {
                 !it.getAllAnnotationName().contains(MTransient::class.java.name)
@@ -294,8 +298,8 @@ object KSClassDecUtils {
         return result
     }
 
-    fun KSClassDeclaration.getAllEnumEntryWithIndex(): List<Pair<String,Int>> {
-        val result = mutableListOf<Pair<String,Int>>()
+    fun KSClassDeclaration.getAllEnumEntryWithIndex(): List<Pair<String, Int>> {
+        val result = mutableListOf<Pair<String, Int>>()
         declarations.forEach {
             if (it is KSClassDeclaration) {
                 //logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
@@ -311,11 +315,12 @@ object KSClassDecUtils {
     }
 
     fun KSClassDeclaration.getSuperClass(): KSType {
-        return this.superTypes.first {  !it.javaClass.isInterface }.resolve()
+        return this.superTypes.first { !it.javaClass.isInterface }.resolve()
     }
-    fun KSClassDeclaration.getSuperClassNameJS():String{
-       val sup = this.getSuperClass()
-        if(sup.toClassName().toString() == "kotlin.Any")
+
+    fun KSClassDeclaration.getSuperClassNameJS(): String {
+        val sup = this.getSuperClass()
+        if (sup.toClassName().toString() == "kotlin.Any")
             return "JavaClass"
         return sup.toClassName().toString();
     }
