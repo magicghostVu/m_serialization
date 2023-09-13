@@ -388,7 +388,7 @@ class GdGenClassMetaData : ClassMetaData() {
                     line("return ret")
                 }
                 else withTab {
-                    line("match buffer.readShort():")
+                    line("match buffer.get_16():")
                     forWithTab(classDec.getAllActualChild()) { kclass ->
                         val tag = globalUniqueTag.getValue(kclass)
                         line("$tag:")
