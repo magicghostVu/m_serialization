@@ -7,10 +7,7 @@ import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.GDGenConf
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
-import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
-import m_serialization.data.class_metadata.JSGenClassMetaData
-import m_serialization.data.class_metadata.GdGenClassMetaData
-import m_serialization.data.class_metadata.KotlinGenClassMetaData
+import m_serialization.data.class_metadata.*
 import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
 import m_serialization.data.gen_protocol_version.KotlinGenProtocolVersion
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
@@ -303,7 +300,8 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         val protocolVersion = allHash.contentHashCode()
         JSGenClassMetaData.outputFile.setVersion(protocolVersion);
         val allGenProtocolVersion = listOf<IGenFileProtocolVersion>(
-            KotlinGenProtocolVersion()
+            KotlinGenProtocolVersion(),
+            GdGenFileProtocolVersion,
         )
 
         allCodeGen.forEach {

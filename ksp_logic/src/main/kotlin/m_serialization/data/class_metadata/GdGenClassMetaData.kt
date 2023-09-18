@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.Modifier
+import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
 import m_serialization.data.prop_meta_data.*
 import m_serialization.data.prop_meta_data.PrimitiveType.*
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
@@ -34,6 +35,11 @@ class GdStream(private val stream: OutputStream, private val indent: Int = 0) {
 }
 
 class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
+    val root = if (rootFolderGen == "") {
+        "m"
+    } else {
+        rootFolderGen
+    }
     private fun isClassAbstract(classDec: KSClassDeclaration): Boolean {
         return classDec.modifiers.contains(Modifier.SEALED)
     }
@@ -77,7 +83,7 @@ class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
             }.toSet().forEach { classDec ->
                 val importName = getTypeSig(classDec)
                 line(
-                    "const ${importName} = preload('res://m/${
+                    "const ${importName} = preload('res://${root}/${
                         classDec.packageName.asString().replace(".", "/")
                     }/${importName}.gd').$importName"
                 )
@@ -86,7 +92,7 @@ class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
                 classDec.getAllActualChild().forEach { kclass ->
                     val importName = getTypeSig(kclass)
                     line(
-                        "const ${importName} = preload('res://m/${
+                        "const ${importName} = preload('res://${root}/${
                             kclass.packageName.asString().replace(".", "/")
                         }/${importName}.gd').$importName"
                     )
@@ -103,7 +109,7 @@ class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
                 val parentDec = parent.resolve().declaration as KSClassDeclaration
                 val importName = getTypeSig(parentDec)
                 line(
-                    "const ${importName} = preload('res://m/${
+                    "const ${importName} = preload('res://${root}/${
                         parentDec.packageName.asString().replace(".", "/")
                     }/${importName}.gd').$importName"
                 )
@@ -115,7 +121,7 @@ class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
                     val parentDec = parent.resolve().declaration as KSClassDeclaration
                     line("extends ${getTypeSig(parentDec)}")
                 } else {
-                    line("extends 'res://m/IPacket.gd'")
+                    line("extends 'res://${root}/IPacket.gd'")
                 }
                 val tag = protocolUniqueId
                 // declaration
@@ -570,5 +576,40 @@ class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
     private fun String.snakeToUpperCamelCase(): String {
         return this.snakeToLowerCamelCase()
             .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+    }
+
+}
+object GdGenFileProtocolVersion : IGenFileProtocolVersion {
+
+    const val template = """## Just a trait
+##
+## Since gdscript does not have trait, we use inheritance instead. All m classes derive from this class.
+
+const PROTOCOL_VERSION = {PROTOCOL_VERSION}
+
+func get_tag() -> int:
+	return 0
+
+## Write this packet to a stream
+func write_to(buffer: StreamPeer, with_tag: bool) -> void:
+	pass
+
+## Pack this packet to a byte array
+func to_byte_array(with_tag: bool, big_endian := true) -> PackedByteArray:
+	var buffer := StreamPeerBuffer.new()
+	buffer.big_endian = big_endian
+	write_to(buffer, with_tag)
+	return buffer.data_array
+"""
+    override fun genFileProtocolVersion(codeGenerator: CodeGenerator, protocolVersion: Int) {
+        run {
+            val stream = codeGenerator.createNewFile(
+                Dependencies(false),
+                "",
+                "IPacket",
+                "gd"
+            )
+            stream.write(template.replace("{PROTOCOL_VERSION}", protocolVersion.toString()).toByteArray())
+        }
     }
 }
