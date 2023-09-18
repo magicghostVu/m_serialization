@@ -18,8 +18,8 @@ dependencies {
     //implementation("io.netty:netty-buffer:4.1.85.Final")
 
     // add graph lib
-    implementation("org.jgrapht:jgrapht-core:1.5.2")
-    implementation("org.jgrapht:jgrapht-io:1.5.2")
+    implementation("org.jgrapht:jgrapht-core:1.4.0")
+    implementation("org.jgrapht:jgrapht-io:1.4.0")
 
     // add kotlin poet
     runtimeOnly("com.squareup:kotlinpoet:1.13.2")
@@ -34,7 +34,11 @@ tasks.test {
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "11"
+    kotlinOptions.jvmTarget = "1.8"
+}
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
 }
 
 task("copyDependencies", Copy::class) {

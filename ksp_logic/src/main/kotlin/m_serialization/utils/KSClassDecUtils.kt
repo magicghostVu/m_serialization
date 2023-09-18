@@ -78,7 +78,11 @@ object KSClassDecUtils {
     fun KSClassDeclaration.getAllPropMetaData(): Map<String, AbstractPropMetadata> {
         val allPropWillAnalyze = getAllProperties()
             .filter {
-                it.hasBackingField
+                if (this.modifiers.contains(Modifier.SEALED)) {
+                    true
+                } else {
+                    it.hasBackingField
+                }
             }
             .filter {
                 !it.getAllAnnotationName().contains(MTransient::class.java.name)
