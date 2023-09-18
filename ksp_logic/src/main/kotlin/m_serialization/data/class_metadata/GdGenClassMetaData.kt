@@ -33,7 +33,7 @@ class GdStream(private val stream: OutputStream, private val indent: Int = 0) {
     }
 }
 
-class GdGenClassMetaData : ClassMetaData() {
+class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
     private fun isClassAbstract(classDec: KSClassDeclaration): Boolean {
         return classDec.modifiers.contains(Modifier.SEALED)
     }

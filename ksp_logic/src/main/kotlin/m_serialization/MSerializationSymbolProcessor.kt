@@ -4,6 +4,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
+import m_serialization.annotations.GDGenConf
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
@@ -73,22 +74,37 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
 
-
-        /*val testClass = resolver.getSymbolsWithAnnotation(
-            TestEnum::class.qualifiedName.toString()
+        val gdGenCofSymbols = resolver.getSymbolsWithAnnotation(
+            GDGenConf::class
+                .qualifiedName!!
         ).toList()
 
+        val gdGenConf: GDGenConf = if (gdGenCofSymbols.isEmpty()) {
+            GDGenConf()
+        } else if (gdGenCofSymbols.size > 1) {
+            throw IllegalArgumentException("ambiguous config for gd gen code, had more than 1 gdgenconf")
+        } else {
+            val c = gdGenCofSymbols
+                .first()
+                .annotations
+                .filter {
+                    it.annotationType.resolve().declaration.qualifiedName!!.asString() == GDGenConf::class.qualifiedName
+                }
+                .toList()
 
-        if (testClass.isNotEmpty()) {
-
-            testClass.forEach{
-                val cc = it as KSClassDeclaration
-                cc.getAllEnumEntrySimpleName();
+            if (c.size > 1) {
+                throw IllegalArgumentException("ambiguous config for gd gen code, had more than 1 gdgenconf")
+            }
+            var sourceGenRootFolder = ""
+            c[0].arguments.forEach {
+                val name = it.name!!.asString()
+                when (name) {
+                    "sourceGenRootFolder" -> sourceGenRootFolder = it.value as String
+                }
             }
 
-
-            return emptyList()
-        }*/
+            GDGenConf(sourceGenRootFolder)
+        }
 
 
         val allClassWillProcess = resolver.getSymbolsWithAnnotation(
@@ -242,7 +258,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
                 val kotlinCodeGen = KotlinGenClassMetaData()
                 val jsCodeGen = JSGenClassMetaData()
-                val gdCodeGen = GdGenClassMetaData()
+                val gdCodeGen = GdGenClassMetaData(gdGenConf.sourceGenRootFolder)
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
