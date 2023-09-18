@@ -16,8 +16,13 @@ dependencies{
     implementation("io.netty:netty-buffer:4.1.85.Final")
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "11"
+    kotlinOptions.jvmTarget = "1.8"
     kotlinOptions.freeCompilerArgs = listOf(
         "-opt-in=kotlin.RequiresOptIn",
         "-Xno-call-assertions",
