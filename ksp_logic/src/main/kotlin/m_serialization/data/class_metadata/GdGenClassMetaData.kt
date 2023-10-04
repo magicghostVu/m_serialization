@@ -126,7 +126,9 @@ class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 }
                 val tag = protocolUniqueId
                 // const tag
-                line("const TAG = $tag")
+                if (tag >= 0) {
+                    line("const TAG = $tag")
+                }
                 // declaration
                 props.mapNotNull { if (it.propDec.findOverridee() == null) it else null }.forEach { prop ->
                     line("var ${prop.name}: ${getTypeSig(prop)}")
@@ -143,8 +145,8 @@ class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     }
                 }
                 // tag
-                line("")
-                run {
+                if (tag >= 0) {
+                    line("")
                     line("func get_tag() -> int:")
                     withTab {
                         line("return $tag")
