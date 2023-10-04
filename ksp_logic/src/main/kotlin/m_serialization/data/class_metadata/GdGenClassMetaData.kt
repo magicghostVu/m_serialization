@@ -125,6 +125,8 @@ class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     line("extends 'res://${root}/IPacket.gd'")
                 }
                 val tag = protocolUniqueId
+                // const tag
+                line("const TAG = $tag")
                 // declaration
                 props.mapNotNull { if (it.propDec.findOverridee() == null) it else null }.forEach { prop ->
                     line("var ${prop.name}: ${getTypeSig(prop)}")
@@ -395,15 +397,17 @@ class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     line("return ret")
                 }
                 else withTab {
-                    line("match buffer.get_16():")
+                    line("var tag = buffer.get_16()")
+                    line("match tag:")
                     forWithTab(classDec.getAllActualChild()) { kclass ->
                         val tag = globalUniqueTag.getOrDefault(kclass, -1)
-                        line("$tag:")
                         val typeSig = getTypeSig(kclass)
+                        line("$typeSig.TAG: # $tag")
                         withTab {
                             line("return $typeSig.read_${typeSig}_from(buffer)")
                         }
                     }
+                    line("print('matching $classSig, tag not recognized:', tag)")
                     line("breakpoint")
                     line("return null")
                 }
