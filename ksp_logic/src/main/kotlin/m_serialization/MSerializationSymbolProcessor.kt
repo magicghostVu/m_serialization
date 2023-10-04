@@ -16,6 +16,7 @@ import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.toPrimitiveType
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
+import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
 import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
 import m_serialization.utils.KSClassDecUtils.getAllPropMetaData
@@ -201,12 +202,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         val autoTag = MutableShort()
 
 
-        val classDecToUniqueTag = setAllClass
-            .asSequence()
-            .map {
-                val tag = autoTag.andIncrement
-                Pair(it, tag)
-            }.toMap()
+        val classDecToUniqueTag = generateTag(setAllClass)
 
 
         val classDecToHash = mutableMapOf<KSClassDeclaration, Int>()
@@ -267,7 +263,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     listPropInConstructor,
                     listPropNotInConstructor,
                     classDec,
-                    classDecToUniqueTag.getValue(classDec),
+                    classDecToUniqueTag.getOrDefault(classDec,-1),
                     classDecToUniqueTag
                 )
 
@@ -318,6 +314,25 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         }
 
         return emptyList()
+    }
+
+    private fun generateTag(allClass: Set<KSClassDeclaration>): Map<KSClassDeclaration, Short> {
+        val result = mutableMapOf<KSClassDeclaration, Short>()
+        for (c in allClass) {
+            // lấy tất cả các con và gen tag
+            if (c.modifiers.contains(Modifier.SEALED)) {
+                val allChild = c.getAllActualChild()
+                var autoLocalTag: Short = 0
+                allChild.forEach {
+                    if (!result.containsKey(it)) {
+                        result[it] = autoLocalTag
+                        autoLocalTag++
+                    }
+                }
+            }
+        }
+
+        return result
     }
 
     private fun exportDependenciesGraph(graph: DefaultDirectedGraph<String, DefaultEdge>) {

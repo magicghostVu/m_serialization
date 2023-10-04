@@ -31,11 +31,13 @@ class KotlinGenClassMetaData() : ClassMetaData() {
         val objectBuilder = TypeSpec.objectBuilder(objectName)
 
 
-        objectBuilder.addProperty(
-            PropertySpec.builder("uniqueTag", Short::class.java)
-                .initializer("$protocolUniqueId")
-                .build()
-        )
+        if (!classDec.modifiers.contains(Modifier.SEALED)) {
+            objectBuilder.addProperty(
+                PropertySpec.builder("uniqueTag", Short::class.java)
+                    .initializer("$protocolUniqueId")
+                    .build()
+            )
+        }
 
 
         // chỉ gen get id và from id

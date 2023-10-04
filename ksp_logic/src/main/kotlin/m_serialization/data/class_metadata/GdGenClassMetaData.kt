@@ -34,12 +34,13 @@ class GdStream(private val stream: OutputStream, private val indent: Int = 0) {
     }
 }
 
-class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
+class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
     val root = if (rootFolderGen == "") {
         "m"
     } else {
         rootFolderGen
     }
+
     private fun isClassAbstract(classDec: KSClassDeclaration): Boolean {
         return classDec.modifiers.contains(Modifier.SEALED)
     }
@@ -396,7 +397,7 @@ class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
                 else withTab {
                     line("match buffer.get_16():")
                     forWithTab(classDec.getAllActualChild()) { kclass ->
-                        val tag = globalUniqueTag.getValue(kclass)
+                        val tag = globalUniqueTag.getOrDefault(kclass, -1)
                         line("$tag:")
                         val typeSig = getTypeSig(kclass)
                         withTab {
@@ -579,6 +580,7 @@ class GdGenClassMetaData(val rootFolderGen:String) : ClassMetaData() {
     }
 
 }
+
 object GdGenFileProtocolVersion : IGenFileProtocolVersion {
 
     const val template = """## Just a trait
@@ -601,6 +603,7 @@ func to_byte_array(with_tag: bool, big_endian := true) -> PackedByteArray:
 	write_to(buffer, with_tag)
 	return buffer.data_array
 """
+
     override fun genFileProtocolVersion(codeGenerator: CodeGenerator, protocolVersion: Int) {
         run {
             val stream = codeGenerator.createNewFile(
