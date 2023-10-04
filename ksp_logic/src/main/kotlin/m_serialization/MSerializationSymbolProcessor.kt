@@ -263,7 +263,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     listPropInConstructor,
                     listPropNotInConstructor,
                     classDec,
-                    classDecToUniqueTag.getOrDefault(classDec,-1),
+                    classDecToUniqueTag.getOrDefault(classDec, -1),
                     classDecToUniqueTag
                 )
 
@@ -329,6 +329,13 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                         autoLocalTag++
                     }
                 }
+            }
+        }
+
+        //các class còn lại sẽ có tag bằng -1
+        allClass.forEach {
+            result.computeIfAbsent(it) {
+                -1
             }
         }
 
