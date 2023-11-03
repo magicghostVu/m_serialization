@@ -5,12 +5,16 @@ import m_serialization.annotations.MSerialization
 import pack.test_collection.MCCCMSerializer.writeTo
 
 fun main() {
-    val c = listOf<Int>(111)
-    val ccc = MCCC(c)
+    val map = mutableMapOf<Int,O>()
+    map[0]= O("phuvh")
+    val ccc = MCCC(map.values)
     val b = Unpooled.buffer()
     ccc.writeTo(b)
     val cc2 = MCCCMSerializer.readFrom(b)
 }
 
 @MSerialization
-class MCCC(val cc: Collection<Int>)
+class O(val s:String)
+
+@MSerialization
+class MCCC(val cc: Collection<O>)
