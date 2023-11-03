@@ -30,7 +30,7 @@ class JSGenClassMetaData() : ClassMetaData() {
         if (classDec.classKind == ClassKind.ENUM_CLASS)
             outputFile.addEnum(JSEnum(classDec))
         else
-            outputFile.addClass(JSClass(protocolUniqueId, classDec, constructorProps))
+            outputFile.addClass(JSClass(protocolUniqueId, classDec, constructorProps+otherProps))
         //logger.warn("$protocolUniqueId ${classDec.toClassName().toString()}")
     }
 
@@ -99,11 +99,11 @@ class JSClass(
     }
 
     fun rawFunName(): String {
-        return "fun0x${classId.toString(16)}"//classDec.simpleName.asString();
+        return classDec.simpleName.asString();
     }
 
     private fun rawFunName(classDec: KSClassDeclaration, classToTag: Map<String, Short>): String {
-        return "fun0x${classToTag[classDec.toClassName().toString()]?.toString(16)}"//classDec.simpleName.asString()
+        return classDec.simpleName.asString();
     }
 
     private fun getExtractFunction(it: AbstractPropMetadata, classToTag: MutableMap<String, Short>): String {
@@ -125,7 +125,7 @@ class JSClass(
 
             //map
             is MapPrimitiveKeyValueMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${getExtractPrimitive(it.keyType)},value:${getExtractPrimitive(it.valueType)}}"
+                "return {key:${getExtractPrimitive(it.keyType)},value: ${getExtractPrimitive(it.valueType)}}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
             is MapPrimitiveKeyObjectValueMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${getExtractPrimitive(it.keyType)},value: this.${
@@ -143,7 +143,7 @@ class JSClass(
                 "return {key:${bufferVar()}.readEnum(),value: this.${bufferVar()}.readEnum()}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
             is MapEnumKeyObjectValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${bufferVar()}.readEnum(),value: value: this.${
+                "return {key:${bufferVar()}.readEnum(),value: this.${
                     rawFunName(
                         it.valueType,
                         classToTag
@@ -151,7 +151,7 @@ class JSClass(
                 }0(${bufferVar()})}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
             is MapEnumKeyPrimitiveValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${bufferVar()}.readEnum(),value: value:${getExtractPrimitive(it.valueType)}}}"
+                "return {key:${bufferVar()}.readEnum(),value: ${getExtractPrimitive(it.valueType)}}}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
         }
     }
@@ -366,7 +366,8 @@ class JSFile(val fileName: String) {
     private var setVersion = false
     fun writeTo(file: BufferedWriter) {
         writeFileStart(file)
-
+        var maxTag = classDecToUniqueTag.maxBy { e -> e.value }.value + 1;
+        classDecToUniqueTag.replaceAll { _, value -> if (value < 0) (maxTag++).toShort() else value };
         classes.forEach {
             it.writeClassFunction(file, classDecToUniqueTag)
         }
@@ -397,7 +398,7 @@ class JSFile(val fileName: String) {
     }
 
     private fun writeFileEnd(file: BufferedWriter) {
-        file.write("arrayToMap:function(_m,_o){ _m[_o.key]=_o.value;return _m},version=${version}")
+        file.write("arrayToMap:function(_m,_o){ _m[_o.key]=_o.value;return _m},version:${version}")
         file.write("};\n")
         file.write("${AbstractPropMetadata.serializerObjectNameSuffix}.instance=${createTree(classTree)}")
     }
@@ -405,7 +406,7 @@ class JSFile(val fileName: String) {
     private fun createTree(classTree: TreeNode): String {
         return if (classTree.type == null) "{${
             classTree.child.entries.joinToString {
-                "${if(it.value.type==null) "" else it.value.type!!.jsDocTree()}${it.key}: ${
+                "${if (it.value.type == null) "" else it.value.type!!.jsDocTree()}${it.key}: ${
                     createTree(
                         it.value
                     )
@@ -445,7 +446,7 @@ class JSFile(val fileName: String) {
     }
 
     fun setVersion(protocolVersion: Int) {
-        if(this.setVersion)
+        if (this.setVersion)
             return
         this.version = protocolVersion
         this.setVersion = true

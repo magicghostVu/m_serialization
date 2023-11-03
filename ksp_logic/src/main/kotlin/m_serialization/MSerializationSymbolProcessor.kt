@@ -116,6 +116,24 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .toSet()
 
 
+        val simpleNameToFullName = mutableMapOf<String, MutableList<String>>()
+        setAllClass.forEach {
+            val simpleName = it.simpleName.asString()
+            val fullName = it.qualifiedName!!.asString()
+            val l = simpleNameToFullName.computeIfAbsent(simpleName) { mutableListOf() }
+            if (l.isNotEmpty()) {
+                val fullNameAddedBefore = l[0]
+                /*logger.error(
+                    "class $fullName and class $fullNameAddedBefore had same simple name," +
+                            " this will cause err with js gen code, change it first"
+                )*/
+                throwErr("class $fullName and class $fullNameAddedBefore had same simple name," +
+                        " this will cause err with js gen code, change it first")
+            }
+            l.add(fullName)
+        }
+
+
         //val allEnumClass = mutableListOf<KSClassDeclaration>()
 
         setAllClass
