@@ -31,6 +31,7 @@ object MEqualsUtils {
                 val (kb, vb) = ib.next()
                 if (ka != kb || !compareValue(va, vb)) {
                     hadDiff = true
+                    break
                 }
             }
             !hadDiff
