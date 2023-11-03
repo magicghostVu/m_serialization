@@ -2,7 +2,6 @@ package m_serialization.data.class_metadata
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.*
@@ -125,9 +124,22 @@ class KotlinGenClassMetaData() : ClassMetaData() {
             }
 
 
+            val (funEquals, importsEquals) = genDeepEqualsFun(className)
+            objectBuilder.addFunction(funEquals)
+            importsEquals.forEach {
+                fileBuilder.addImport(it, "")
+            }
+
+
             fileBuilder.addType(objectBuilder.build())
             fileBuilder.build().writeTo(codeGenerator, Dependencies(true))
         }
+    }
+
+    private fun genDeepEqualsFun(typeName: TypeName): Pair<FunSpec, Set<String>> {
+
+
+        TODO()
     }
 
 
