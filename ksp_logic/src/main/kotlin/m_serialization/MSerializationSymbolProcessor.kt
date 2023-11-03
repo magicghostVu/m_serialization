@@ -31,8 +31,6 @@ import java.io.StringWriter
 import java.io.Writer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.util.*
-import kotlin.collections.LinkedHashMap
 
 
 enum class GenericTypeSupport {
@@ -49,11 +47,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     // tạm thời chưa hỗ trợ object làm key
     // tất cả các key phải là primitive
-    // xem có thể hỗ trợ trong tương lai
+    // xem xét có thể hỗ trợ trong tương lai
     private val fullNameToTypeGenericSupport: Map<String, GenericTypeSupport> = mapOf(
         "kotlin.collections.MutableList" to GenericTypeSupport.LIST,
         "java.util.LinkedList" to GenericTypeSupport.LIST,
         "kotlin.collections.List" to GenericTypeSupport.LIST,
+        "kotlin.collections.Collection" to GenericTypeSupport.LIST,
         "kotlin.collections.MutableMap" to GenericTypeSupport.MAP,
         "kotlin.collections.Map" to GenericTypeSupport.MAP,
         "java.util.TreeMap" to GenericTypeSupport.MAP
@@ -127,8 +126,10 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     "class $fullName and class $fullNameAddedBefore had same simple name," +
                             " this will cause err with js gen code, change it first"
                 )*/
-                throwErr("class $fullName and class $fullNameAddedBefore had same simple name," +
-                        " this will cause err with js gen code, change it first")
+                throwErr(
+                    "class $fullName and class $fullNameAddedBefore had same simple name," +
+                            " this will cause err with js gen code, change it first"
+                )
             }
             l.add(fullName)
         }
@@ -563,7 +564,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 }
 
                 val typeGenericTypeSupport = fullNameToTypeGenericSupport[classNameOfProp]
-                    ?: throw IllegalArgumentException("prop $propName at class $containerClassName not serializable")
+
+                if (typeGenericTypeSupport == null) {
+                    logger.warn("class name of prop is ${classDecOfProp.qualifiedName!!.asString()}")
+                    throw IllegalArgumentException("prop $propName at class $containerClassName not serializable")
+                }
 
 
                 // check tham số kiểu của khai báo
