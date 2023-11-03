@@ -6,9 +6,9 @@ import com.google.devtools.ksp.symbol.KSType
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
-import java.lang.StringBuilder
 
 
+//maybe change name to collection
 sealed class ListPropMetaData(val listType: KSType) : AbstractPropMetadata() {
     fun listTypeAtSource(): ListTypeAtSource {
         return ListTypeAtSource.fromName(listType.declaration.qualifiedName!!.asString())
@@ -19,7 +19,8 @@ sealed class ListPropMetaData(val listType: KSType) : AbstractPropMetadata() {
 enum class ListTypeAtSource(val fullName: String) {
     List("kotlin.collections.List"),// immutable list
     MutableList("kotlin.collections.MutableList"),
-    MLinkedList("java.util.LinkedList");
+    MLinkedList("java.util.LinkedList"),
+    MCollection("kotlin.collections.Collection");
 
     companion object {
         private val map = ListTypeAtSource
@@ -34,8 +35,10 @@ enum class ListTypeAtSource(val fullName: String) {
 
         fun createNewExpression(listType: ListTypeAtSource, typeParam: String): String {
             return when (listType) {
-                List -> "mutableListOf<$typeParam>()"
+                MCollection,
+                List,
                 MutableList -> "mutableListOf<$typeParam>()"
+
                 MLinkedList -> "LinkedList<$typeParam>()"
             }
         }
