@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.Modifier
+import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
 import m_serialization.data.prop_meta_data.*
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
@@ -50,34 +51,42 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
     } else {
         rootFolderGen
     }
+    lateinit var full_pk: String
 
     private fun isClassAbstract(classDec: KSClassDeclaration): Boolean {
         return classDec.modifiers.contains(Modifier.SEALED)
     }
 
     override fun doGenCode(codeGenerator: CodeGenerator) {
-        if (classDec.modifiers.contains(Modifier.ENUM)) {
-            genEnum(codeGenerator)
-        } else {
-            genClass(codeGenerator)
+        full_pk = "$root.${classDec.packageName.asString()}"
+        val writer = TsWriter(
+            codeGenerator.createNewFile(
+                Dependencies(false),
+                full_pk,
+                classDec.simpleName.asString(),
+                "ts"
+            )
+        )
+
+        writer.line("namespace ${full_pk}")
+        writer.withBlock {
+            if (classDec.modifiers.contains(Modifier.ENUM)) {
+                genEnum(writer)
+            } else {
+                genClass(writer)
+            }
         }
     }
 
-    private fun genClass(codeGenerator: CodeGenerator) {
+
+    private fun genClass(writer: TsWriter) {
         val bufferClass = "fr.GsnEnetPacket"
         val isAbstract = isClassAbstract(classDec)
         val props = constructorProps + otherProps
         val classSig = getTypeSig(classDec)
-        TsWriter(
-            codeGenerator.createNewFile(
-                Dependencies(false),
-                classDec.packageName.asString(),
-                classDec.simpleName.asString(),
-                "ts"
-            )
-        ).apply {
+        writer.apply {
             // import deps
-            /*props.flatMap { prop ->
+            props.flatMap { prop ->
                 when (prop) {
                     is ListObjectPropMetaData -> listOf(prop.elementClass)
                     is ListPrimitivePropMetaData -> listOf()
@@ -95,22 +104,18 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
             }.toSet().forEach { classDec ->
                 val importName = getTypeSig(classDec)
                 line(
-                    "const ${importName} = preload('res://${root}/${
-                        classDec.packageName.asString().replace(".", "/")
-                    }/${importName}.gd').$importName"
+                    "import $importName = $full_pk.$importName"
                 )
-            }*/
+            }
             // import child class
-            /*if (isAbstract) {
+            if (isAbstract) {
                 classDec.getAllActualChild().forEach { kclass ->
                     val importName = getTypeSig(kclass)
                     line(
-                        "const ${importName} = preload('res://${root}/${
-                            kclass.packageName.asString().replace(".", "/")
-                        }/${importName}.gd').$importName"
+                        "import $importName = $root.${kclass.packageName.asString()}.$importName"
                     )
                 }
-            }*/
+            }
             val parent = run {
                 val parent =
                     classDec.superTypes.find { (it.resolve().declaration as KSClassDeclaration).classKind == ClassKind.CLASS }
@@ -119,21 +124,19 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 } else null
             }
             // import base class
-            /*if (parent != null) {
+            if (parent != null) {
                 val parentDec = parent.resolve().declaration as KSClassDeclaration
                 val importName = getTypeSig(parentDec)
                 line(
-                    "const ${importName} = preload('res://${root}/${
-                        parentDec.packageName.asString().replace(".", "/")
-                    }/${importName}.gd').$importName"
+                    "import $importName = $root.${parentDec.packageName.asString()}.$importName"
                 )
-            }*/
+            }
 
             if (parent != null) {
                 val parentDec = parent.resolve().declaration as KSClassDeclaration
-                line("${if (isAbstract) "abstract " else ""}class $classSig extends ${getTypeSig(parentDec)}")
+                line("export ${if (isAbstract) "abstract " else ""}class $classSig extends ${getTypeSig(parentDec)}")
             } else {
-                line("${if (isAbstract) "abstract " else ""}class $classSig implements IPacket")
+                line("export ${if (isAbstract) "abstract " else ""}class $classSig")
             }
             withBlock {
                 val tag = protocolUniqueId
@@ -154,7 +157,8 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     withBlock {
                         if (parent != null) {
                             val parentDec = parent.resolve().declaration as KSClassDeclaration
-                            val params = parentDec.primaryConstructor!!.parameters.joinToString(", ") { it.name!!.asString() }
+                            val params =
+                                parentDec.primaryConstructor!!.parameters.joinToString(", ") { it.name!!.asString() }
                             line("super($params);")
                         }
                     }
@@ -285,6 +289,13 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     }
                 } else {
                     line("abstract write_to(buffer: $bufferClass, with_tag: boolean): void")
+                }
+                // to bytes
+                line("to_enet_bytes(with_tag: boolean): fr.GsnEnetPacket")
+                withBlock {
+                    line("const p = new fr.GsnEnetPacket();")
+                    line("this.write_to(p, with_tag);")
+                    line("return p;")
                 }
                 // deserialize
                 line("static read_from(buffer: $bufferClass): $classSig")
@@ -438,16 +449,9 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
     private fun withoutOverridee(it: AbstractPropMetadata) =
         if (it.propDec.findOverridee() == null) it else null
 
-    private fun genEnum(codeGenerator: CodeGenerator) {
-        TsWriter(
-            codeGenerator.createNewFile(
-                Dependencies(false),
-                classDec.packageName.asString(),
-                classDec.simpleName.asString(),
-                "ts"
-            )
-        ).apply {
-            line("enum ${classDec.simpleName.asString()}")
+    private fun genEnum(writer: TsWriter) {
+        writer.apply {
+            line("export enum ${classDec.simpleName.asString()}")
             forWithBlock(classDec.getAllEnumEntrySimpleName()) { enumName ->
                 line("$enumName,")
             }
@@ -557,4 +561,34 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
     }
 
 
+}
+
+
+class TsGenFileProtocolVersion(val rootFolderGen: String) : IGenFileProtocolVersion {
+    val root = if (rootFolderGen == "") {
+        "m"
+    } else {
+        rootFolderGen
+    }
+    private val template = """
+namespace {NAMESPACE} {
+    const PROTOCOL_VERSION = {PROTOCOL_VERSION}
+}
+"""
+
+    override fun genFileProtocolVersion(codeGenerator: CodeGenerator, protocolVersion: Int) {
+        run {
+            val stream = codeGenerator.createNewFile(
+                Dependencies(false),
+                "",
+                "IPacket",
+                "ts"
+            )
+            stream.write(
+                template
+                    .replace("{NAMESPACE}", root)
+                    .replace("{PROTOCOL_VERSION}", protocolVersion.toString()).toByteArray()
+            )
+        }
+    }
 }

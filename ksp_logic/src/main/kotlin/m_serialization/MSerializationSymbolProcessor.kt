@@ -270,7 +270,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
                 val kotlinCodeGen = KotlinGenClassMetaData()
                 val jsCodeGen = JSGenClassMetaData()
-                val gdCodeGen = GdGenClassMetaData(gdGenConf.sourceGenRootFolder)
+                val gdCodeGen = TsGenClassMetaData(gdGenConf.sourceGenRootFolder)
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
@@ -316,7 +316,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         JSGenClassMetaData.outputFile.setVersion(protocolVersion);
         val allGenProtocolVersion = listOf<IGenFileProtocolVersion>(
             KotlinGenProtocolVersion(),
-            GdGenFileProtocolVersion,
+            TsGenFileProtocolVersion(gdGenConf.sourceGenRootFolder),
         )
 
         allCodeGen.forEach {
