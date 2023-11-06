@@ -572,7 +572,7 @@ class TsGenFileProtocolVersion(val rootFolderGen: String) : IGenFileProtocolVers
     }
     private val template = """
 namespace {NAMESPACE} {
-    const PROTOCOL_VERSION = {PROTOCOL_VERSION}
+    export const PROTOCOL_VERSION = {PROTOCOL_VERSION}
 }
 """
 
