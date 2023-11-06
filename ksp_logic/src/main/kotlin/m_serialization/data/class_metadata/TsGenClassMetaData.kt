@@ -11,6 +11,8 @@ import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
 import java.io.OutputStream
 import java.util.*
+import kotlin.io.path.Path
+import kotlin.io.path.relativeTo
 
 class TsWriter(private val stream: OutputStream) {
     fun line(line: String) {
@@ -68,54 +70,82 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
             )
         )
 
+        val props = constructorProps + otherProps
+        val refPaths = props.flatMap { prop ->
+            when (prop) {
+                is ListObjectPropMetaData -> listOf(prop.elementClass)
+                is ListPrimitivePropMetaData -> listOf()
+                is ObjectPropMetaData -> listOf(prop.classDec)
+                is PrimitivePropMetaData -> listOf()
+                is EnumPropMetaData -> listOf(prop.enumClass)
+                is ListEnumPropMetaData -> listOf(prop.enumClass)
+                is MapEnumKeyEnumValue -> listOf(prop.enumKey)
+                is MapEnumKeyObjectValuePropMetaData -> listOf(prop.enumKey, prop.valueType)
+                is MapEnumKeyPrimitiveValuePropMetaData -> listOf(prop.enumKey)
+                is MapPrimitiveKeyEnumValue -> listOf(prop.enumValue)
+                is MapPrimitiveKeyObjectValueMetaData -> listOf(prop.valueClassDec)
+                is MapPrimitiveKeyValueMetaData -> listOf()
+            }
+        }.toSet()
+        val currentPath = Path(full_pk.replace(".", "/"))
+        refPaths.forEach { classDec ->
+            val importName = getTypeSig(classDec)
+            val path = Path("$root.${classDec.packageName.asString()}.$importName".replace(".", "/"))
+            val rel = path.relativeTo(currentPath)
+            writer.line(
+                "/// <reference path='$rel.ts' />"
+            )
+        }
+
+        val parent = run {
+            val parent =
+                classDec.superTypes.find { (it.resolve().declaration as KSClassDeclaration).classKind == ClassKind.CLASS }
+            if (parent != null && globalUniqueTag.contains(parent.resolve().declaration)) {
+                parent
+            } else null
+        }
+        if (parent != null) {
+            val parentDec = parent.resolve().declaration as KSClassDeclaration
+            val importName = getTypeSig(parentDec)
+            val path = Path("$root.${parentDec.packageName.asString()}.$importName".replace(".", "/"))
+            val rel = path.relativeTo(currentPath)
+            writer.line(
+                "/// <reference path='$rel.ts' />"
+            )
+        }
         writer.line("namespace ${full_pk}")
         writer.withBlock {
             if (classDec.modifiers.contains(Modifier.ENUM)) {
                 genEnum(writer)
             } else {
-                genClass(writer)
+                genClass(writer, refPaths)
             }
         }
     }
 
 
-    private fun genClass(writer: TsWriter) {
+    private fun genClass(writer: TsWriter, refPaths: Set<KSClassDeclaration>) {
         val bufferClass = "fr.GsnEnetPacket"
         val isAbstract = isClassAbstract(classDec)
         val props = constructorProps + otherProps
         val classSig = getTypeSig(classDec)
         writer.apply {
             // import deps
-            props.flatMap { prop ->
-                when (prop) {
-                    is ListObjectPropMetaData -> listOf(prop.elementClass)
-                    is ListPrimitivePropMetaData -> listOf()
-                    is ObjectPropMetaData -> listOf(prop.classDec)
-                    is PrimitivePropMetaData -> listOf()
-                    is EnumPropMetaData -> listOf(prop.enumClass)
-                    is ListEnumPropMetaData -> listOf(prop.enumClass)
-                    is MapEnumKeyEnumValue -> listOf(prop.enumKey)
-                    is MapEnumKeyObjectValuePropMetaData -> listOf(prop.enumKey, prop.valueType)
-                    is MapEnumKeyPrimitiveValuePropMetaData -> listOf(prop.enumKey)
-                    is MapPrimitiveKeyEnumValue -> listOf(prop.enumValue)
-                    is MapPrimitiveKeyObjectValueMetaData -> listOf(prop.valueClassDec)
-                    is MapPrimitiveKeyValueMetaData -> listOf()
-                }
-            }.toSet().forEach { classDec ->
+            refPaths.forEach { classDec ->
                 val importName = getTypeSig(classDec)
                 line(
-                    "import $importName = $full_pk.$importName"
+                    "import $importName = $root.${classDec.packageName.asString()}.$importName"
                 )
             }
             // import child class
-            if (isAbstract) {
+            /*if (isAbstract) {
                 classDec.getAllActualChild().forEach { kclass ->
                     val importName = getTypeSig(kclass)
                     line(
                         "import $importName = $root.${kclass.packageName.asString()}.$importName"
                     )
                 }
-            }
+            }*/
             val parent = run {
                 val parent =
                     classDec.superTypes.find { (it.resolve().declaration as KSClassDeclaration).classKind == ClassKind.CLASS }
@@ -423,7 +453,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     forWithBlock(classDec.getAllActualChild()) { kclass ->
                         val tag = globalUniqueTag.getOrDefault(kclass, -1)
                         val typeSig = getTypeSig(kclass)
-                        line("case $typeSig.TAG: // $tag")
+                        line("case $root.${classDec.packageName.asString()}.$typeSig.TAG: // $tag")
                         withBlock {
                             line("return $typeSig.read_from(buffer)")
                         }
