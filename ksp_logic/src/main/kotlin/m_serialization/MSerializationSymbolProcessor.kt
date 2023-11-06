@@ -270,7 +270,8 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
                 val kotlinCodeGen = KotlinGenClassMetaData()
                 val jsCodeGen = JSGenClassMetaData()
-                val gdCodeGen = TsGenClassMetaData(gdGenConf.sourceGenRootFolder)
+                val tsCodegen = TsGenClassMetaData(gdGenConf.sourceGenRootFolder)
+                val gdCodeGen = GdGenClassMetaData(gdGenConf.sourceGenRootFolder)
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
@@ -286,7 +287,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     classDecToUniqueTag
                 )
 
-                Pair(listOf(kotlinCodeGen, gdCodeGen, jsCodeGen), commonProp)
+                Pair(listOf(kotlinCodeGen, jsCodeGen, tsCodegen, gdCodeGen), commonProp)
 
 
             }
@@ -317,6 +318,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         val allGenProtocolVersion = listOf<IGenFileProtocolVersion>(
             KotlinGenProtocolVersion(),
             TsGenFileProtocolVersion(gdGenConf.sourceGenRootFolder),
+            GdGenFileProtocolVersion,
         )
 
         allCodeGen.forEach {
