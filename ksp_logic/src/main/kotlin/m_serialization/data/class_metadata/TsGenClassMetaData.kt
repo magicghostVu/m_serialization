@@ -12,6 +12,8 @@ import m_serialization.utils.KSClassDecUtils.getAllEnumEntrySimpleName
 import java.io.OutputStream
 import java.util.*
 import kotlin.io.path.Path
+import kotlin.io.path.invariantSeparatorsPathString
+import kotlin.io.path.pathString
 import kotlin.io.path.relativeTo
 
 class TsWriter(private val stream: OutputStream) {
@@ -89,9 +91,9 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         }.toSet()
         val currentPath = Path(full_pk.replace(".", "/"))
         refPaths.forEach { classDec ->
-            val importName = getTypeSig(classDec)
-            val path = Path("$root.${classDec.packageName.asString()}.$importName".replace(".", "/"))
-            val rel = path.relativeTo(currentPath)
+            val path =
+                Path("$root.${classDec.packageName.asString()}.${classDec.simpleName.asString()}".replace(".", "/"))
+            val rel = path.relativeTo(currentPath).invariantSeparatorsPathString
             writer.line(
                 "/// <reference path='$rel.ts' />"
             )
@@ -106,9 +108,9 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         }
         if (parent != null) {
             val parentDec = parent.resolve().declaration as KSClassDeclaration
-            val importName = getTypeSig(parentDec)
-            val path = Path("$root.${parentDec.packageName.asString()}.$importName".replace(".", "/"))
-            val rel = path.relativeTo(currentPath)
+            val path =
+                Path("$root.${parentDec.packageName.asString()}.${parentDec.simpleName.asString()}".replace(".", "/"))
+            val rel = path.relativeTo(currentPath).invariantSeparatorsPathString
             writer.line(
                 "/// <reference path='$rel.ts' />"
             )
@@ -128,15 +130,15 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         val bufferClass = "fr.GsnEnetPacket"
         val isAbstract = isClassAbstract(classDec)
         val props = constructorProps + otherProps
-        val classSig = getTypeSig(classDec)
+        val classSig = classDec.simpleName.asString()
         writer.apply {
             // import deps
-            refPaths.forEach { classDec ->
+            /*refPaths.forEach { classDec ->
                 val importName = getTypeSig(classDec)
                 line(
                     "import $importName = $root.${classDec.packageName.asString()}.$importName"
                 )
-            }
+            }*/
             // import child class
             /*if (isAbstract) {
                 classDec.getAllActualChild().forEach { kclass ->
@@ -154,13 +156,13 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 } else null
             }
             // import base class
-            if (parent != null) {
+            /*if (parent != null) {
                 val parentDec = parent.resolve().declaration as KSClassDeclaration
                 val importName = getTypeSig(parentDec)
                 line(
                     "import $importName = $root.${parentDec.packageName.asString()}.$importName"
                 )
-            }
+            }*/
 
             if (parent != null) {
                 val parentDec = parent.resolve().declaration as KSClassDeclaration
@@ -453,7 +455,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     forWithBlock(classDec.getAllActualChild()) { kclass ->
                         val tag = globalUniqueTag.getOrDefault(kclass, -1)
                         val typeSig = getTypeSig(kclass)
-                        line("case $root.${classDec.packageName.asString()}.$typeSig.TAG: // $tag")
+                        line("case $root.$typeSig.TAG: // $tag")
                         withBlock {
                             line("return $typeSig.read_from(buffer)")
                         }
@@ -464,13 +466,39 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
 
                 // utils
                 run {
+                    line("_to_string_tab(tab: number): string")
+                    withBlock {
+                        val params = props.map { prop ->
+                            val varName = prop.name
+                            "'\\n' + t1 + '$varName: ' + ${getStr("this.$varName", prop)}"
+                        }.joinToString(" + ")
+                        line("var t0 = '  '.repeat(tab)")
+                        line("var t1 = t0 + '  '")
+                        line("var t2 = t1 + '  '")
+                        line("return `$classSig {` + ${params.ifEmpty { "''" }} + `\\n\${t0}}`")
+                    }
                     line("toString(): string")
                     withBlock {
-                        line("return JSON.stringify(this, null, 2)")
+                        line("return this._to_string_tab(0)")
                     }
                 }
             }
         }
+    }
+
+    private fun getStr(varName: String, prop: AbstractPropMetadata) = when (prop) {
+        is ListObjectPropMetaData -> "`Array<${getTypeSig(prop.elementClass, false)}>(\${$varName.length}) [\\n\${t2}\${$varName.map(n => n._to_string_tab(tab + 2)).join(',\\n' + t2)}\\n\${t1}]`"
+        is ListPrimitivePropMetaData -> "`Array<${getTypeSig(prop.type, false)}>(\${$varName.length}) [\\n\${t2}\${$varName.join(',\\n' + t2)}\\n\${t1}]`"
+        is MapPrimitiveKeyObjectValueMetaData -> "`Map<${getTypeSig(prop.keyType, false)}, ${getTypeSig(prop.valueClassDec, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)._to_string_tab(tab + 2)}`).join(',\\n' + t2)}\\n\${t1}]`"
+        is MapPrimitiveKeyValueMetaData -> "`Map<${getTypeSig(prop.keyType, false)}, ${getTypeSig(prop.valueType, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)}`).join(',\\n' + t2)}\\n\${t1}]`"
+        is ObjectPropMetaData -> "$varName._to_string_tab(tab + 1)"
+        is PrimitivePropMetaData -> varName
+        is EnumPropMetaData -> varName
+        is ListEnumPropMetaData -> "`Array<${getTypeSig(prop.enumClass, false)}>(\${$varName.length}) [\\n\${t2}\${$varName.join(',\\n' + t2)}\\n\${t1}]`"
+        is MapEnumKeyEnumValue -> "`Map<${getTypeSig(prop.enumKey, false)}, ${getTypeSig(prop.enumValue, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)}`).join(',\\n' + t2)}\\n\${t1}]`"
+        is MapEnumKeyObjectValuePropMetaData -> "`Map<${getTypeSig(prop.enumKey, false)}, ${getTypeSig(prop.valueType, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)._to_string_tab(tab + 2)}`).join(',\\n' + t2)}\\n\${t1}]`"
+        is MapEnumKeyPrimitiveValuePropMetaData -> "`Map<${getTypeSig(prop.enumKey, false)}, ${getTypeSig(prop.valueType, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)}`).join(',\\n' + t2)}\\n\${t1}]`"
+        is MapPrimitiveKeyEnumValue -> "`Map<${getTypeSig(prop.keyType, false)}, ${getTypeSig(prop.enumValue, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)}`).join(',\\n' + t2)}\\n\${t1}]`"
     }
 
     private fun withOverridee(it: AbstractPropMetadata) =
@@ -488,32 +516,34 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         }
     }
 
-    private fun getTypeSig(prop: AbstractPropMetadata) = when (prop) {
-        is ListObjectPropMetaData -> "Array<${getTypeSig(prop.elementClass)}>"
-        is ListPrimitivePropMetaData -> "Array<${getTypeSig(prop.type)}>"
-        is MapPrimitiveKeyObjectValueMetaData -> "Map<${getTypeSig(prop.keyType)}, ${getTypeSig(prop.valueClassDec)}>"
-        is MapPrimitiveKeyValueMetaData -> "Map<${getTypeSig(prop.keyType)}, ${getTypeSig(prop.valueType)}>"
-        is ObjectPropMetaData -> getTypeSig(prop.classDec)
-        is PrimitivePropMetaData -> getTypeSig(prop.type)
-        is EnumPropMetaData -> getTypeSig(prop.enumClass)
-        is ListEnumPropMetaData -> "Array<${getTypeSig(prop.enumClass)}>"
-        is MapEnumKeyEnumValue -> "Map<${getTypeSig(prop.enumKey)}, ${getTypeSig(prop.enumValue)}>"
-        is MapEnumKeyObjectValuePropMetaData -> "Map<${getTypeSig(prop.enumKey)}, ${getTypeSig(prop.valueType)}>"
-        is MapEnumKeyPrimitiveValuePropMetaData -> "Map<${getTypeSig(prop.enumKey)}, ${getTypeSig(prop.valueType)}>"
-        is MapPrimitiveKeyEnumValue -> "Map<${getTypeSig(prop.keyType)}, ${getTypeSig(prop.enumValue)}>"
+    private fun getTypeSig(prop: AbstractPropMetadata, fullName: Boolean = true) = when (prop) {
+        is ListObjectPropMetaData -> "Array<${getTypeSig(prop.elementClass, fullName)}>"
+        is ListPrimitivePropMetaData -> "Array<${getTypeSig(prop.type, fullName)}>"
+        is MapPrimitiveKeyObjectValueMetaData -> "Map<${getTypeSig(prop.keyType, fullName)}, ${getTypeSig(prop.valueClassDec, fullName)}>"
+        is MapPrimitiveKeyValueMetaData -> "Map<${getTypeSig(prop.keyType, fullName)}, ${getTypeSig(prop.valueType, fullName)}>"
+        is ObjectPropMetaData -> getTypeSig(prop.classDec, fullName)
+        is PrimitivePropMetaData -> getTypeSig(prop.type, fullName)
+        is EnumPropMetaData -> getTypeSig(prop.enumClass, fullName)
+        is ListEnumPropMetaData -> "Array<${getTypeSig(prop.enumClass, fullName)}>"
+        is MapEnumKeyEnumValue -> "Map<${getTypeSig(prop.enumKey, fullName)}, ${getTypeSig(prop.enumValue, fullName)}>"
+        is MapEnumKeyObjectValuePropMetaData -> "Map<${getTypeSig(prop.enumKey, fullName)}, ${getTypeSig(prop.valueType, fullName)}>"
+        is MapEnumKeyPrimitiveValuePropMetaData -> "Map<${getTypeSig(prop.enumKey, fullName)}, ${getTypeSig(prop.valueType, fullName)}>"
+        is MapPrimitiveKeyEnumValue -> "Map<${getTypeSig(prop.keyType, fullName)}, ${getTypeSig(prop.enumValue, fullName)}>"
     }
 
-    private fun getTypeSig(kclass: KSClassDeclaration) = kclass.simpleName.asString()
-    private fun getTypeSig(primitive: PrimitiveType) = when (primitive) {
-        PrimitiveType.INT -> "number"
-        PrimitiveType.SHORT -> "number"
-        PrimitiveType.DOUBLE -> "number"
-        PrimitiveType.BYTE -> "number"
-        PrimitiveType.BOOL -> "boolean"
-        PrimitiveType.FLOAT -> "number"
-        PrimitiveType.LONG -> "number"
-        PrimitiveType.STRING -> "string"
-        PrimitiveType.BYTE_ARRAY -> "fr.GsnEnetPacket"
+    private fun getTypeSig(kclass: KSClassDeclaration, fullName: Boolean = true) =
+        if (fullName) "${kclass.packageName.asString()}.${kclass.simpleName.asString()}" else kclass.simpleName.asString()
+
+    private fun getTypeSig(primitive: PrimitiveType, fullName: Boolean = true) = when (primitive) {
+        PrimitiveType.INT -> if (fullName) "number" else "int"
+        PrimitiveType.SHORT -> if (fullName) "number" else "short"
+        PrimitiveType.DOUBLE -> if (fullName) "number" else "double"
+        PrimitiveType.BYTE -> if (fullName) "number" else "byte"
+        PrimitiveType.BOOL -> if (fullName) "boolean" else "bool"
+        PrimitiveType.FLOAT -> if (fullName) "number" else "float"
+        PrimitiveType.LONG -> if (fullName) "number" else "long"
+        PrimitiveType.STRING -> if (fullName) "string" else "string"
+        PrimitiveType.BYTE_ARRAY -> if (fullName) "fr.GsnEnetPacket" else "byte_array"
     }
 
     private fun name_join(name: String, prefix: String): String {
