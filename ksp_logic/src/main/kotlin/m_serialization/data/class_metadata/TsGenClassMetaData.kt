@@ -326,6 +326,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 line("to_enet_bytes(with_tag: boolean): fr.GsnEnetPacket")
                 withBlock {
                     line("const p = new fr.GsnEnetPacket();")
+                    line("p.setBigEndian(true);")
                     line("this.write_to(p, with_tag);")
                     line("return p;")
                 }
