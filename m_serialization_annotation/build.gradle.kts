@@ -1,3 +1,4 @@
+import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
@@ -29,4 +30,9 @@ tasks.withType<KotlinCompile> {
         "-Xno-receiver-assertions",
         "-Xno-param-assertions"
     )
+}
+tasks.register<Jar>("sourceJar"){
+    dependsOn("classes")
+    archiveClassifier.set("sources")
+    from(sourceSets["main"].allSource)
 }

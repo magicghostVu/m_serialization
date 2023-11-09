@@ -203,7 +203,7 @@ class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                                     line("for key in $varName:")
                                     withTab {
                                         bufferWritePrimitive(prop.keyType, "key")
-                                        bufferWritePrimitive(prop.keyType, "$varName[key]")
+                                        bufferWritePrimitive(prop.valueType, "$varName[key]")
                                     }
                                 }
 
