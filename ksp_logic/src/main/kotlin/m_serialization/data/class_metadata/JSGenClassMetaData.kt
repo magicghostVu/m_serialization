@@ -77,6 +77,12 @@ class JSClass(
     val classDec: KSClassDeclaration,
     val constructorProps: List<AbstractPropMetadata>
 ) : JSElement() {
+
+    companion object {
+        var lastId = 0;
+        val MapClassToID: MutableMap<KSClassDeclaration, Int> = mutableMapOf();
+    }
+
     fun bufferVar(): String {
         return JSFile.bufferVar;
     }
@@ -99,11 +105,15 @@ class JSClass(
     }
 
     fun rawFunName(): String {
-        return classDec.simpleName.asString();
+        return "fun0x${MapClassToID.computeIfAbsent(classDec){
+            lastId++
+        }.toString(16)}"
     }
 
     private fun rawFunName(classDec: KSClassDeclaration, classToTag: Map<String, Short>): String {
-        return classDec.simpleName.asString();
+        return "fun0x${MapClassToID.computeIfAbsent(classDec){
+            lastId++
+        }.toString(16)}"
     }
 
     private fun getExtractFunction(it: AbstractPropMetadata, classToTag: MutableMap<String, Short>): String {
