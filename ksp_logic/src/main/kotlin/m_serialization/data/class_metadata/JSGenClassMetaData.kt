@@ -47,12 +47,12 @@ sealed class JSElement() {
             is ListEnumPropMetaData -> "${type.enumClass.toClassName()}[]"
             is ListObjectPropMetaData -> "${type.elementClass.toClassName()}[]"
             is ListPrimitivePropMetaData -> "${primitiveJsDocType(type.type)}[]"
-            is MapEnumKeyEnumValue -> "Map<${type.enumKey.toClassName()},${type.enumValue.toClassName()}>"
-            is MapEnumKeyObjectValuePropMetaData -> "Map<${type.enumKey.toClassName()},${type.valueType.toClassName()}>"
-            is MapEnumKeyPrimitiveValuePropMetaData -> "Map<${type.enumKey.toClassName()},${primitiveJsDocType(type.valueType)}>"
-            is MapPrimitiveKeyEnumValue -> "Map<${primitiveJsDocType(type.keyType)},${type.enumValue.toClassName()}>"
-            is MapPrimitiveKeyObjectValueMetaData -> "Map<${primitiveJsDocType(type.keyType)},${type.valueClassDec.toClassName()}>"
-            is MapPrimitiveKeyValueMetaData -> "Map<${primitiveJsDocType(type.keyType)},${primitiveJsDocType(type.valueType)}>"
+            is MapEnumKeyEnumValue -> "Object.<${type.enumKey.toClassName()},${type.enumValue.toClassName()}>"
+            is MapEnumKeyObjectValuePropMetaData -> "Object.<${type.enumKey.toClassName()},${type.valueType.toClassName()}>"
+            is MapEnumKeyPrimitiveValuePropMetaData -> "Object.<${type.enumKey.toClassName()},${primitiveJsDocType(type.valueType)}>"
+            is MapPrimitiveKeyEnumValue -> "Object.<${primitiveJsDocType(type.keyType)},${type.enumValue.toClassName()}>"
+            is MapPrimitiveKeyObjectValueMetaData -> "Object.<${primitiveJsDocType(type.keyType)},${type.valueClassDec.toClassName()}>"
+            is MapPrimitiveKeyValueMetaData -> "Object.<${primitiveJsDocType(type.keyType)},${primitiveJsDocType(type.valueType)}>"
         }
     }
 
