@@ -30,7 +30,7 @@ class JSGenClassMetaData() : ClassMetaData() {
         if (classDec.classKind == ClassKind.ENUM_CLASS)
             outputFile.addEnum(JSEnum(classDec))
         else
-            outputFile.addClass(JSClass(protocolUniqueId, classDec, constructorProps+otherProps))
+            outputFile.addClass(JSClass(protocolUniqueId, classDec, constructorProps + otherProps))
         //logger.warn("$protocolUniqueId ${classDec.toClassName().toString()}")
     }
 
@@ -110,7 +110,7 @@ class JSClass(
         return when (it) {
             is PrimitivePropMetaData -> getExtractPrimitive(it.type)
             is ObjectPropMetaData -> "this.${rawFunName(it.classDec, classToTag)}0(${bufferVar()})"
-            is EnumPropMetaData -> "this.${bufferVar()}.readEnum()"
+            is EnumPropMetaData -> "${bufferVar()}.readEnum()"
 
             //list
             is ListObjectPropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
@@ -326,7 +326,7 @@ class JSClass(
         file.write("/**@typedef {JavaClass} ${classDec.toClassName()}${AbstractPropMetadata.serializerObjectNameSuffix}\n");
         file.write(" * @property {function(JReadBuffer):${classDec.toClassName()}} extract\n")
         file.write(" * @property {function(JWriteBuffer,${classDec.toClassName()}):void} zip\n")
-        file.write(" * @property {function(${constructorProps.joinToString { jsDocType(it) }}):${classDec.toClassName()}} create\n")
+        file.write(" * @property {function(${constructorProps.joinToString { "${it.name}:${jsDocType(it)}" }}):${classDec.toClassName()}} create\n")
         file.write("*/\n")
     }
 
