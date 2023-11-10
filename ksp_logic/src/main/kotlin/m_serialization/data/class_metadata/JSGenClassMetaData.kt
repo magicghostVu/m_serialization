@@ -151,7 +151,7 @@ class JSClass(
                 }0(${bufferVar()})}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
             is MapEnumKeyPrimitiveValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${bufferVar()}.readEnum(),value: ${getExtractPrimitive(it.valueType)}}}"
+                "return {key:${bufferVar()}.readEnum(),value: ${getExtractPrimitive(it.valueType)}}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
         }
     }
