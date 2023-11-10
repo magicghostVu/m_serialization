@@ -105,15 +105,19 @@ class JSClass(
     }
 
     fun rawFunName(): String {
-        return "fun0x${MapClassToID.computeIfAbsent(classDec){
-            lastId++
-        }.toString(16)}"
+        return "fun0x${
+            MapClassToID.computeIfAbsent(classDec) {
+                lastId++
+            }.toString(16)
+        }"
     }
 
     private fun rawFunName(classDec: KSClassDeclaration, classToTag: Map<String, Short>): String {
-        return "fun0x${MapClassToID.computeIfAbsent(classDec){
-            lastId++
-        }.toString(16)}"
+        return "fun0x${
+            MapClassToID.computeIfAbsent(classDec) {
+                lastId++
+            }.toString(16)
+        }"
     }
 
     private fun getExtractFunction(it: AbstractPropMetadata, classToTag: MutableMap<String, Short>): String {
@@ -351,6 +355,10 @@ class JSEnum(var classDec: KSClassDeclaration) : JSElement() {
         return "/** @Enum {number} */"
     }
 
+    fun writeEnumJSDoc(file: BufferedWriter) {
+        file.write("/** @Enum {number} ${classDec.toClassName()} */\n")
+    }
+
 }
 
 class TreeNode() {
@@ -394,6 +402,9 @@ class JSFile(val fileName: String) {
 
         classes.forEach {
             it.writeClassJSDOC(file)
+        }
+        enums.forEach {
+            it.writeEnumJSDoc(file)
         }
 
 
