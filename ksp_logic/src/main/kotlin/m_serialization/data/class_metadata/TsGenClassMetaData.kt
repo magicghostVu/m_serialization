@@ -563,7 +563,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
             PrimitiveType.BYTE -> line("const $varName = buffer.getByte()")
             PrimitiveType.BOOL -> line("const $varName = buffer.getByte() != 0")
             PrimitiveType.FLOAT -> line("const $varName = buffer.getFloat()")
-            PrimitiveType.LONG -> line("const $varName = buffer.getLong()")
+            PrimitiveType.LONG -> line("const $varName = +buffer.getLong()")
             PrimitiveType.STRING -> {
                 line("const $varName = buffer.getString()")
             }
