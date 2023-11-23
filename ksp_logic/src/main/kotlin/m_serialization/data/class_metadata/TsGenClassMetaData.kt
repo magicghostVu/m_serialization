@@ -232,7 +232,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                                 is MapPrimitiveKeyObjectValueMetaData -> {
                                     line("// MapObjectValueMetaData")
                                     line("buffer.putShort(this.$varName!.size)")
-                                    line("for (const key of this.$varName!.keys())")
+                                    line("for (const key of Array.from(this.$varName!.keys()))")
                                     withBlock {
                                         bufferWritePrimitive(prop.keyType, "key")
                                         if (isClassAbstract(prop.valueClassDec)) {
@@ -246,7 +246,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                                 is MapPrimitiveKeyValueMetaData -> {
                                     line("// MapPrimitiveValueMetaData")
                                     line("buffer.putShort(this.$varName!.size)")
-                                    line("for (const key of this.$varName!.keys())")
+                                    line("for (const key of Array.from(this.$varName!.keys()))")
                                     withBlock {
                                         bufferWritePrimitive(prop.keyType, "key")
                                         bufferWritePrimitive(prop.valueType, "this.$varName!.get(key)")
@@ -276,7 +276,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                                 is MapEnumKeyEnumValue -> {
                                     line("// MapEnumKeyEnumValue")
                                     line("buffer.putShort(this.$varName!.size)")
-                                    line("for (const key of this.$varName!.keys())")
+                                    line("for (const key of Array.from(this.$varName!.keys()))")
                                     withBlock {
                                         line("buffer.putShort(key)")
                                         line("buffer.putShort(this.$varName!.get(key))")
@@ -286,7 +286,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                                 is MapEnumKeyObjectValuePropMetaData -> {
                                     line("// MapPrimitiveKeyEnumValue")
                                     line("buffer.putShort(this.$varName!.size)")
-                                    line("for (const key of this.$varName!.keys())")
+                                    line("for (const key of Array.from(this.$varName!.keys()))")
                                     withBlock {
                                         line("buffer.putShort(key)")
                                         if (isClassAbstract(prop.valueType)) {
@@ -300,7 +300,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                                 is MapEnumKeyPrimitiveValuePropMetaData -> {
                                     line("// MapPrimitiveKeyEnumValue")
                                     line("buffer.putShort(this.$varName!.size)")
-                                    line("for (const key of this.$varName!.keys())")
+                                    line("for (const key of Array.from(this.$varName!.keys()))")
                                     withBlock {
                                         line("buffer.putShort(key)")
                                         bufferWritePrimitive(prop.valueType, "this.$varName!.get(key)")
@@ -310,7 +310,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                                 is MapPrimitiveKeyEnumValue -> {
                                     line("// MapPrimitiveKeyEnumValue")
                                     line("buffer.putShort(this.$varName!.size)")
-                                    line("for (const key of this.$varName!.keys())")
+                                    line("for (const key of Array.from(this.$varName!.keys()))")
                                     withBlock {
                                         bufferWritePrimitive(prop.keyType, "key")
                                         line("buffer.putShort(this.$varName!.get(key))")
