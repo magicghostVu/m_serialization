@@ -4,7 +4,7 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
-import m_serialization.annotations.GDGenConf
+import m_serialization.annotations.GenCodeConf
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.class_metadata.*
@@ -72,12 +72,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     override fun process(resolver: Resolver): List<KSAnnotated> {
 
         val gdGenCofSymbols = resolver.getSymbolsWithAnnotation(
-            GDGenConf::class
+            GenCodeConf::class
                 .qualifiedName!!
         ).toList()
 
-        val gdGenConf: GDGenConf = if (gdGenCofSymbols.isEmpty()) {
-            GDGenConf()
+        val gdGenConf: GenCodeConf = if (gdGenCofSymbols.isEmpty()) {
+            GenCodeConf()
         } else if (gdGenCofSymbols.size > 1) {
             throw IllegalArgumentException("ambiguous config for gd gen code, had more than 1 gdgenconf")
         } else {
@@ -85,7 +85,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 .first()
                 .annotations
                 .filter {
-                    it.annotationType.resolve().declaration.qualifiedName!!.asString() == GDGenConf::class.qualifiedName
+                    it.annotationType.resolve().declaration.qualifiedName!!.asString() == GenCodeConf::class.qualifiedName
                 }
                 .toList()
 
@@ -100,7 +100,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 }
             }
 
-            GDGenConf(sourceGenRootFolder)
+            GenCodeConf(sourceGenRootFolder)
         }
 
 
