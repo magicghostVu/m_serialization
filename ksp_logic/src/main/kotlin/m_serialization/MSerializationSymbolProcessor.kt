@@ -549,6 +549,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .filter { (_, type) ->
                 type.arguments.isNotEmpty()
             }
+            .filter { (prop, type) ->
+                prop.hasBackingField
+            }
             .forEach { (prop, type) ->
                 // check class của khai báo
 
