@@ -198,7 +198,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 }
 
                 if (!isAbstract) {
-                    line("static default()")
+                    line("static default(): $classSig")
                     withBlock {
                         val params = constructorProps.map { prop ->
                             getDefaultValue(prop, true)
@@ -208,7 +208,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 } else {
                     val firstChild = classDec.getAllActualChild().getOrNull(0);
                     if (firstChild!=null) {
-                        line("static default()")
+                        line("static default(): $classSig")
                         withBlock {
                             val childSig = getTypeSig(firstChild, fullName = true);
                             line("return $childSig.default()")
