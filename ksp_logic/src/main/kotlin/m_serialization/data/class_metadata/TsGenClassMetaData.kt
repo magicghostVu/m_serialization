@@ -205,6 +205,15 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                         }.joinToString(", ")
                         line("return new $classSig($params)")
                     }
+                } else {
+                    val firstChild = classDec.getAllActualChild().getOrNull(0);
+                    if (firstChild!=null) {
+                        line("static default()")
+                        withBlock {
+                            val childSig = getTypeSig(firstChild, fullName = true);
+                            line("return $childSig.default()")
+                        }
+                    }
                 }
                 // tag
                 if (tag >= 0) {
