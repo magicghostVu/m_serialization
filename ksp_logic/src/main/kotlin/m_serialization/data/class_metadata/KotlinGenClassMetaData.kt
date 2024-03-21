@@ -2,7 +2,6 @@ package m_serialization.data.class_metadata
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.*
@@ -122,6 +121,17 @@ class KotlinGenClassMetaData() : ClassMetaData() {
 
             allImportDeserializer.forEach {
                 fileBuilder.addImport(it, "")
+            }
+
+
+            val (funcCalSerializeSize, allImportSerializeSize) = genFuncSerializeSize(className)
+
+            funcCalSerializeSize.forEach {
+                objectBuilder.addFunction(it)
+            }
+
+            allImportSerializeSize.forEach {
+                fileBuilder.addImport(it)
             }
 
 
@@ -340,6 +350,24 @@ class KotlinGenClassMetaData() : ClassMetaData() {
 
             Pair(listOf(funWriteInternal.build(), funcWriteTo.build()), allImports)
         }
+    }
+
+    private fun genFuncSerializeSize(typeName: TypeName): Pair<List<FunSpec>, Set<String>> {
+        return if (classDec.classKind == ClassKind.ENUM_CLASS) {
+            Pair(emptyList(), emptySet())
+        } else {
+
+            // gen fun khác với func của các con
+            if (classDec.modifiers.contains(Modifier.SEALED)) {
+
+            } else {
+
+
+            }
+
+            TODO()
+        }
+
     }
 
 

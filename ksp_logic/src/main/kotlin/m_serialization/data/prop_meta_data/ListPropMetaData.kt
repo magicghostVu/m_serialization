@@ -226,6 +226,23 @@ class ListObjectPropMetaData(
     override fun mtoString(): String {
         return "list<${elementClass.simpleName.asString()}>"
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        return listOf(
+            "${elementClass.importSerializer()[0]}.$serializeSizeFuncName"
+        )
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        return """
+            var $varNameToAssign=2;// lisy size
+            for(e in $name){
+                // add size từng phần tử
+                // check xem kiểu khai báo có là sealed hay không
+                $varNameToAssign += 10
+            }
+        """.trimIndent()
+    }
 }
 
 class ListEnumPropMetaData(
@@ -307,5 +324,16 @@ class ListEnumPropMetaData(
 
     override fun mtoString(): String {
         return "list<${enumClass.simpleName.asString()}>"
+    }
+
+    override fun addImportForCalculateSize(): List<String> {
+        return emptyList()
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        return """
+            var $varNameToAssign=2;
+            $varNameToAssign += 2*$name.size
+        """.trimIndent()
     }
 }

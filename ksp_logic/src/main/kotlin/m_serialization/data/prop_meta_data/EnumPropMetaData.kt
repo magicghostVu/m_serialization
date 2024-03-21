@@ -35,6 +35,13 @@ class EnumPropMetaData(
         return enumClass.importSerializer() + enumClass.qualifiedName!!.asString()
     }
 
+
+    override fun addImportForCalculateSize(): List<String> = emptyList()
+
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        return "var $varNameToAssign=2"
+    }
     override fun mtoString(): String {
         return enumClass.simpleName.asString()
     }
