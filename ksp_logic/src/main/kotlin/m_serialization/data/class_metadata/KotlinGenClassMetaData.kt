@@ -379,40 +379,43 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                                 "var $sizeVarNameForThisProp = 2//enum\n"
                             )
                         }
+
                         is PrimitivePropMetaData -> {
-                           val expression:String =  when(prop.type){
-                               PrimitiveType.INT,
-                               PrimitiveType.FLOAT -> {
-                                   "var $sizeVarNameForThisProp = 4//int, float\n"
-                               }
+                            val expression: String = when (prop.type) {
+                                PrimitiveType.INT,
+                                PrimitiveType.FLOAT -> {
+                                    "var $sizeVarNameForThisProp = 4//int, float\n"
+                                }
 
-                               PrimitiveType.LONG,
-                               PrimitiveType.DOUBLE -> {
-                                   "var $sizeVarNameForThisProp = 8//long, double\n"
-                               }
+                                PrimitiveType.LONG,
+                                PrimitiveType.DOUBLE -> {
+                                    "var $sizeVarNameForThisProp = 8//long, double\n"
+                                }
 
-                               PrimitiveType.BYTE,
-                               PrimitiveType.BOOL -> {
-                                   "var $sizeVarNameForThisProp = 1//bool, byte\n"
-                               }
-
-
-                               PrimitiveType.SHORT -> {
-                                   "var $sizeVarNameForThisProp = 2//short\n"
-                               }
+                                PrimitiveType.BYTE,
+                                PrimitiveType.BOOL -> {
+                                    "var $sizeVarNameForThisProp = 1//bool, byte\n"
+                                }
 
 
-                               PrimitiveType.STRING -> {
-                                   allImport.add("m_serialization.utils.ByteBufUtils.strSerializeSize")
-                                   "var $sizeVarNameForThisProp = ${prop.name}.strSerializeSize()\n"
-                               }
-                               PrimitiveType.BYTE_ARRAY -> {
-                                   allImport.add("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
-                                   "var $sizeVarNameForThisProp = ${prop.name}.byteArraySerializeSize()\n"
-                               }
-                           }
+                                PrimitiveType.SHORT -> {
+                                    "var $sizeVarNameForThisProp = 2//short\n"
+                                }
+
+
+                                PrimitiveType.STRING -> {
+                                    allImport.add("m_serialization.utils.ByteBufUtils.strSerializeSize")
+                                    "var $sizeVarNameForThisProp = ${prop.name}.strSerializeSize()\n"
+                                }
+
+                                PrimitiveType.BYTE_ARRAY -> {
+                                    allImport.add("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
+                                    "var $sizeVarNameForThisProp = ${prop.name}.byteArraySerializeSize()\n"
+                                }
+                            }
                             funCalculateSerializeSpec.addStatement(expression)
                         }
+
                         is ListPropMetaData -> {
                             funCalculateSerializeSpec.addStatement(prop.expressionForCalSize(sizeVarNameForThisProp))
                             allImport.addAll(prop.addImportForCalculateSize())
@@ -423,7 +426,8 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                         is MapEnumKeyPrimitiveValuePropMetaData,
                         is MapPrimitiveKeyEnumValue,
                         is MapPrimitiveKeyObjectValueMetaData,
-                        is MapPrimitiveKeyValueMetaData,
+                        is MapPrimitiveKeyValueMetaData -> TODO()
+
                         is ObjectPropMetaData -> TODO()
                     }
                 }
