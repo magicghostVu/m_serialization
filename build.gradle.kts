@@ -37,8 +37,10 @@ java {
     targetCompatibility = JavaVersion.VERSION_1_8
 }
 
-tasks.register("cleanKsp"){
-    delete("$buildDir/generated/ksp/main/kotlin")
+tasks.register("cleanKsp") {
+    doLast {
+        delete("$buildDir/generated/ksp/main/kotlin")
+    }
 }
 
 tasks.withType<KotlinCompile> {

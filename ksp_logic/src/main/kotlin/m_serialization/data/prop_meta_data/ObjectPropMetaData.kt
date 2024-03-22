@@ -42,4 +42,13 @@ class ObjectPropMetaData(
         return classDec.importSerializer() +
                 classDec.qualifiedName!!.asString()
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        TODO("Not yet implemented")
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        TODO("Not yet implemented")
+    }
+
 }

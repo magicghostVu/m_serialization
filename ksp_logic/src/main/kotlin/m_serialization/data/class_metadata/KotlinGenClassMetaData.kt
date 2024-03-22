@@ -8,7 +8,7 @@ import com.squareup.kotlinpoet.*
 import com.squareup.kotlinpoet.ParameterizedTypeName.Companion.parameterizedBy
 import com.squareup.kotlinpoet.ksp.toClassName
 import com.squareup.kotlinpoet.ksp.writeTo
-import m_serialization.data.prop_meta_data.AbstractPropMetadata
+import m_serialization.data.prop_meta_data.*
 import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getFunctionNameWriteInternal
@@ -131,7 +131,7 @@ class KotlinGenClassMetaData() : ClassMetaData() {
             }
 
             allImportSerializeSize.forEach {
-                fileBuilder.addImport(it)
+                fileBuilder.addImport(it, "")
             }
 
 
@@ -360,12 +360,80 @@ class KotlinGenClassMetaData() : ClassMetaData() {
             // gen fun khác với func của các con
             if (classDec.modifiers.contains(Modifier.SEALED)) {
 
+                TODO()
             } else {
 
+                val allImport = mutableSetOf<String>()
+                val funCalculateSerializeSpec = FunSpec
+                    .builder(AbstractPropMetadata.serializeSizeFuncName)
+                    .receiver(typeName)
+                    .returns(Int::class)
 
+
+                val allProp = constructorProps + otherProps
+                allProp.forEachIndexed { index, prop ->
+                    val sizeVarNameForThisProp = "s$index"
+                    when (prop) {
+                        is EnumPropMetaData -> {
+                            funCalculateSerializeSpec.addStatement(
+                                "var $sizeVarNameForThisProp = 2//enum\n"
+                            )
+                        }
+                        is PrimitivePropMetaData -> {
+                           val expression:String =  when(prop.type){
+                               PrimitiveType.INT,
+                               PrimitiveType.FLOAT -> {
+                                   "var $sizeVarNameForThisProp = 4//int, float\n"
+                               }
+
+                               PrimitiveType.LONG,
+                               PrimitiveType.DOUBLE -> {
+                                   "var $sizeVarNameForThisProp = 8//long, double\n"
+                               }
+
+                               PrimitiveType.BYTE,
+                               PrimitiveType.BOOL -> {
+                                   "var $sizeVarNameForThisProp = 1//bool, byte\n"
+                               }
+
+
+                               PrimitiveType.SHORT -> {
+                                   "var $sizeVarNameForThisProp = 2//short\n"
+                               }
+
+
+                               PrimitiveType.STRING -> {
+                                   allImport.add("m_serialization.utils.ByteBufUtils.strSerializeSize")
+                                   "var $sizeVarNameForThisProp = ${prop.name}.strSerializeSize()\n"
+                               }
+                               PrimitiveType.BYTE_ARRAY -> {
+                                   allImport.add("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
+                                   "var $sizeVarNameForThisProp = ${prop.name}.byteArraySerializeSize()\n"
+                               }
+                           }
+                            funCalculateSerializeSpec.addStatement(expression)
+                        }
+                        is ListPropMetaData -> {
+                            funCalculateSerializeSpec.addStatement(prop.expressionForCalSize(sizeVarNameForThisProp))
+                            allImport.addAll(prop.addImportForCalculateSize())
+                        }
+
+                        is MapEnumKeyEnumValue,
+                        is MapEnumKeyObjectValuePropMetaData,
+                        is MapEnumKeyPrimitiveValuePropMetaData,
+                        is MapPrimitiveKeyEnumValue,
+                        is MapPrimitiveKeyObjectValueMetaData,
+                        is MapPrimitiveKeyValueMetaData,
+                        is ObjectPropMetaData -> TODO()
+                    }
+                }
+
+                funCalculateSerializeSpec.addStatement("return 0")
+
+                // insert return sum size of all props
+
+                Pair(listOf(funCalculateSerializeSpec.build()), allImport)
             }
-
-            TODO()
         }
 
     }

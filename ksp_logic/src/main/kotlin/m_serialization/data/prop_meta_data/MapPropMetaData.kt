@@ -133,6 +133,14 @@ class MapEnumKeyPrimitiveValuePropMetaData(
     override fun mtoString(): String {
         return "map<${enumKey.simpleName.asString()},${PrimitiveType.simpleName(valueType)}>"
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        return emptyList()
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        return "TODO()"
+    }
 }
 
 
@@ -228,6 +236,16 @@ class MapEnumKeyObjectValuePropMetaData(
                 valueType.qualifiedName!!.asString() +
                 enumKey.qualifiedName!!.asString()
     }
+
+
+    override fun addImportForCalculateSize(): List<String> {
+        TODO("Not yet implemented")
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        TODO("Not yet implemented")
+    }
+
 }
 
 
@@ -319,6 +337,15 @@ class MapEnumKeyEnumValue(
                 enumValue.importSerializer() +
                 enumKey.qualifiedName!!.asString() +
                 enumValue.qualifiedName!!.asString()
+    }
+
+
+    override fun addImportForCalculateSize(): List<String> {
+        TODO("Not yet implemented")
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        TODO("Not yet implemented")
     }
 }
 
@@ -425,6 +452,14 @@ class MapPrimitiveKeyValueMetaData(
         r.addAll(PrimitiveType.addImportExpressionForWrite(valueType))
         return r;
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        TODO("Not yet implemented")
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        TODO("Not yet implemented")
+    }
 }
 
 class MapPrimitiveKeyObjectValueMetaData(
@@ -524,6 +559,15 @@ class MapPrimitiveKeyObjectValueMetaData(
         list.add(valueClassDec.qualifiedName!!.asString())
         return list
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        TODO("Not yet implemented")
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        TODO("Not yet implemented")
+    }
+
 }
 
 
@@ -613,5 +657,13 @@ class MapPrimitiveKeyEnumValue(
         return PrimitiveType.addImportExpressionForRead(keyType) +
                 enumValue.importSerializer() +
                 enumValue.qualifiedName!!.asString()
+    }
+
+    override fun addImportForCalculateSize(): List<String> {
+        TODO("Not yet implemented")
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        TODO("Not yet implemented")
     }
 }

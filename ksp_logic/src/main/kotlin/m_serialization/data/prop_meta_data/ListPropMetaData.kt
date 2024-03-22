@@ -138,6 +138,67 @@ class ListPrimitivePropMetaData(
     override fun mtoString(): String {
         return "list<${PrimitiveType.simpleName(type)}>"
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        return when (type) {
+            PrimitiveType.INT,
+            PrimitiveType.SHORT,
+            PrimitiveType.DOUBLE,
+            PrimitiveType.BYTE,
+            PrimitiveType.BOOL,
+            PrimitiveType.FLOAT,
+            PrimitiveType.LONG -> emptyList()
+
+            PrimitiveType.STRING -> listOf(
+                "m_serialization.utils.ByteBufUtils.strSerializeSize"
+            )
+
+            PrimitiveType.BYTE_ARRAY -> {
+                listOf("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
+            }
+        }
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+
+        val resultBuilder = StringBuilder()
+        resultBuilder
+            .append(
+                "var $varNameToAssign = 2;//list size\n"
+            )
+            //.append("$varNameToAssign += 2// list size\n")
+
+        val elementVarName = "e"
+
+        val moreAppend: String = when (type) {
+            PrimitiveType.FLOAT,
+            PrimitiveType.INT -> "$varNameToAssign += 4*$name.size"
+
+            PrimitiveType.SHORT -> "$varNameToAssign += 2*$name.size"
+
+            PrimitiveType.LONG,
+            PrimitiveType.DOUBLE -> "$varNameToAssign += 8*$name.size"
+
+            PrimitiveType.BOOL,
+            PrimitiveType.BYTE -> "$varNameToAssign += $name.size"
+
+
+            PrimitiveType.BYTE_ARRAY -> """
+    for($elementVarName in $name){
+        $varNameToAssign += $elementVarName.byteArraySerializeSize()
+    }
+            """.trimIndent()
+
+            PrimitiveType.STRING -> """
+    for($elementVarName in $name){
+        $varNameToAssign += $elementVarName.strSerializeSize()
+    }
+            """.trimIndent()
+        }
+        resultBuilder.append(moreAppend)
+
+        return resultBuilder.toString()
+    }
 }
 
 // if element class is sealed so insert unique tag otherwise not
