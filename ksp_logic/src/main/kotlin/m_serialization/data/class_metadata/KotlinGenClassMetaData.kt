@@ -369,51 +369,26 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                     .receiver(typeName)
                     .returns(Int::class)
 
+                val allSizeVarName = mutableListOf<String>()
 
                 val allProp = constructorProps + otherProps
                 allProp.forEachIndexed { index, prop ->
                     val sizeVarNameForThisProp = "s$index"
+                    allSizeVarName.add(sizeVarNameForThisProp)
                     when (prop) {
                         is EnumPropMetaData -> {
                             funCalculateSerializeSpec.addStatement(
-                                "var $sizeVarNameForThisProp = 2//enum\n"
+                                "var $sizeVarNameForThisProp = 2//enum"
                             )
                         }
 
                         is PrimitivePropMetaData -> {
-                            val expression: String = when (prop.type) {
-                                PrimitiveType.INT,
-                                PrimitiveType.FLOAT -> {
-                                    "var $sizeVarNameForThisProp = 4//int, float\n"
-                                }
-
-                                PrimitiveType.LONG,
-                                PrimitiveType.DOUBLE -> {
-                                    "var $sizeVarNameForThisProp = 8//long, double\n"
-                                }
-
-                                PrimitiveType.BYTE,
-                                PrimitiveType.BOOL -> {
-                                    "var $sizeVarNameForThisProp = 1//bool, byte\n"
-                                }
-
-
-                                PrimitiveType.SHORT -> {
-                                    "var $sizeVarNameForThisProp = 2//short\n"
-                                }
-
-
-                                PrimitiveType.STRING -> {
-                                    allImport.add("m_serialization.utils.ByteBufUtils.strSerializeSize")
-                                    "var $sizeVarNameForThisProp = ${prop.name}.strSerializeSize()\n"
-                                }
-
-                                PrimitiveType.BYTE_ARRAY -> {
-                                    allImport.add("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
-                                    "var $sizeVarNameForThisProp = ${prop.name}.byteArraySerializeSize()\n"
-                                }
-                            }
-                            funCalculateSerializeSpec.addStatement(expression)
+                            val expressionAndImport = prop.type.expressionAndImportForCalSerializeSize(
+                                sizeVarNameForThisProp,
+                                prop.name
+                            )
+                            funCalculateSerializeSpec.addStatement(expressionAndImport.first+"\n")
+                            allImport.addAll(expressionAndImport.second)
                         }
 
                         is ListPropMetaData -> {
@@ -428,14 +403,19 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                         is MapPrimitiveKeyObjectValueMetaData,
                         is MapPrimitiveKeyValueMetaData -> TODO()
 
-                        is ObjectPropMetaData -> TODO()
+                        is ObjectPropMetaData -> {
+                            // call serialize size của class này
+                            funCalculateSerializeSpec.addStatement(
+                                prop.expressionForCalSize(sizeVarNameForThisProp)
+                            )
+                            allImport.addAll(prop.addImportForCalculateSize())
+                        }
                     }
                 }
 
-                funCalculateSerializeSpec.addStatement("return 0")
+                val sum = allSizeVarName.joinToString(" + ")
 
-                // insert return sum size of all props
-
+                funCalculateSerializeSpec.addStatement("return $sum")
                 Pair(listOf(funCalculateSerializeSpec.build()), allImport)
             }
         }

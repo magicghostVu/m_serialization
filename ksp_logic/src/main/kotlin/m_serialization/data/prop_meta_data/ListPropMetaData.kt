@@ -166,7 +166,7 @@ class ListPrimitivePropMetaData(
             .append(
                 "var $varNameToAssign = 2;//list size\n"
             )
-            //.append("$varNameToAssign += 2// list size\n")
+
 
         val elementVarName = "e"
 
