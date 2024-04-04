@@ -358,9 +358,56 @@ class KotlinGenClassMetaData() : ClassMetaData() {
         } else {
 
             // gen fun khác với func của các con
+            // switch case các con
             if (classDec.modifiers.contains(Modifier.SEALED)) {
+                val paramNames = "objectToCalSize"
+                val funCalculateSerializeSpec = FunSpec
+                    .builder(AbstractPropMetadata.serializeSizeFuncName)
+                    .receiver(typeName)
+                    .addParameter(
+                        ParameterSpec
+                            .builder(
+                                paramNames,
+                                typeName
+                            ).build()
+                    )
+                    .returns(Int::class)
 
-                TODO()
+
+                // gen when expression for all child
+
+                val allImport = mutableSetOf<String>()
+
+                val expressionBuilder = StringBuilder()
+
+                val childSizeVarName = "childSize"
+
+                expressionBuilder.append(
+                    "val $childSizeVarName:Int = when($paramNames){\n"
+                )
+
+                classDec.getAllActualChild().forEach {
+                    expressionBuilder.append(
+                        "is ${it.simpleName.asString()} -> $paramNames.${AbstractPropMetadata.serializeSizeFuncName}()\n"
+                    )
+                    allImport.addAll(
+                        it.importSerializer().map { import ->
+                            "$import.${AbstractPropMetadata.serializeSizeFuncName}"
+                        }
+                    )
+                }
+
+                expressionBuilder.append("}")
+
+
+
+                funCalculateSerializeSpec.addStatement(expressionBuilder.toString())
+
+                funCalculateSerializeSpec.addStatement(
+                    "return $childSizeVarName + 2"
+                )
+
+                Pair(listOf(funCalculateSerializeSpec.build()), allImport)
             } else {
 
                 val allImport = mutableSetOf<String>()
@@ -372,51 +419,327 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                 val allSizeVarName = mutableListOf<String>()
 
                 val allProp = constructorProps + otherProps
-                allProp.forEachIndexed { index, prop ->
-                    val sizeVarNameForThisProp = "s$index"
-                    allSizeVarName.add(sizeVarNameForThisProp)
-                    when (prop) {
-                        is EnumPropMetaData -> {
-                            funCalculateSerializeSpec.addStatement(
-                                "var $sizeVarNameForThisProp = 2//enum"
-                            )
-                        }
 
-                        is PrimitivePropMetaData -> {
-                            val expressionAndImport = prop.type.expressionAndImportForCalSerializeSize(
-                                sizeVarNameForThisProp,
-                                prop.name
-                            )
-                            funCalculateSerializeSpec.addStatement(expressionAndImport.first+"\n")
-                            allImport.addAll(expressionAndImport.second)
-                        }
+                if (allProp.isNotEmpty()) {
+                    allProp.forEachIndexed { index, prop ->
+                        val sizeVarNameForThisProp = "s$index"
+                        allSizeVarName.add(sizeVarNameForThisProp)
+                        when (prop) {
+                            is EnumPropMetaData -> {
+                                funCalculateSerializeSpec.addStatement(
+                                    "var $sizeVarNameForThisProp = 2//enum"
+                                )
+                            }
 
-                        is ListPropMetaData -> {
-                            funCalculateSerializeSpec.addStatement(prop.expressionForCalSize(sizeVarNameForThisProp))
-                            allImport.addAll(prop.addImportForCalculateSize())
-                        }
+                            is PrimitivePropMetaData -> {
+                                val expressionAndImport = prop.type.expressionAndImportForCalSerializeSize(
+                                    sizeVarNameForThisProp,
+                                    prop.name
+                                )
+                                funCalculateSerializeSpec.addStatement(expressionAndImport.first + "\n")
+                                allImport.addAll(expressionAndImport.second)
+                            }
 
-                        is MapEnumKeyEnumValue,
-                        is MapEnumKeyObjectValuePropMetaData,
-                        is MapEnumKeyPrimitiveValuePropMetaData,
-                        is MapPrimitiveKeyEnumValue,
-                        is MapPrimitiveKeyObjectValueMetaData,
-                        is MapPrimitiveKeyValueMetaData -> TODO()
+                            is ListPropMetaData -> {
+                                funCalculateSerializeSpec.addStatement(prop.expressionForCalSize(sizeVarNameForThisProp))
+                                allImport.addAll(prop.addImportForCalculateSize())
+                            }
 
-                        is ObjectPropMetaData -> {
-                            // call serialize size của class này
-                            funCalculateSerializeSpec.addStatement(
-                                prop.expressionForCalSize(sizeVarNameForThisProp)
-                            )
-                            allImport.addAll(prop.addImportForCalculateSize())
+
+                            is MapPropMetaData -> {
+                                when (prop) {
+                                    is MapEnumKeyEnumValue -> {
+                                        funCalculateSerializeSpec.addStatement(
+                                            "val $sizeVarNameForThisProp = 2 + ${prop.name}.size * 4//map enum key value"
+                                        )
+                                    }
+
+                                    is MapEnumKeyObjectValuePropMetaData -> {
+                                        funCalculateSerializeSpec.addStatement(
+                                            "var $sizeVarNameForThisProp = 2"
+                                        )
+                                        funCalculateSerializeSpec.addStatement(
+                                            "$sizeVarNameForThisProp += ${prop.name}.size * 2// key size"
+                                        )
+                                        val tempVarNameForIter = "v"
+                                        val expressionCalSizeOfObject =
+                                            if (prop.valueType.modifiers.contains(Modifier.SEALED)) {
+                                                "$tempVarNameForIter.${AbstractPropMetadata.serializeSizeFuncName}($tempVarNameForIter)"
+                                            } else {
+                                                "$tempVarNameForIter.${AbstractPropMetadata.serializeSizeFuncName}()"
+                                            }
+
+                                        funCalculateSerializeSpec.addStatement(
+                                            """
+                                        for($tempVarNameForIter in ${prop.name}.values){ //value size 
+                                            $sizeVarNameForThisProp += $expressionCalSizeOfObject
+                                        }
+                                    """.trimIndent()
+                                        )
+
+                                        allImport.addAll(
+                                            prop.valueType.importSerializer().map {
+                                                "$it.${AbstractPropMetadata.serializeSizeFuncName}"
+                                            }
+                                        )
+                                    }
+
+                                    is MapEnumKeyPrimitiveValuePropMetaData -> {
+                                        funCalculateSerializeSpec.addStatement(
+                                            "var $sizeVarNameForThisProp = 2"
+                                        )
+
+                                        funCalculateSerializeSpec.addStatement(
+                                            "$sizeVarNameForThisProp += 2 * ${prop.name}.size// key size"
+                                        )
+
+                                        when (val valueType = prop.valueType) {
+                                            PrimitiveType.INT,
+                                            PrimitiveType.SHORT,
+                                            PrimitiveType.DOUBLE,
+                                            PrimitiveType.BYTE,
+                                            PrimitiveType.BOOL,
+                                            PrimitiveType.FLOAT,
+                                            PrimitiveType.LONG -> {
+                                                val sizeSerialize = valueType.serializeSize()
+                                                funCalculateSerializeSpec.addStatement(
+                                                    "$sizeVarNameForThisProp += ${prop.name}.size * $sizeSerialize//value size"
+                                                )
+                                            }
+
+                                            PrimitiveType.STRING -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    """
+                                                for(e in ${prop.name}.values){
+                                                    $sizeVarNameForThisProp += e.strSerializeSize()
+                                                }
+                                            """.trimIndent()
+                                                )
+
+                                                allImport.add(
+                                                    "m_serialization.utils.ByteBufUtils.strSerializeSize"
+                                                )
+                                            }
+
+                                            PrimitiveType.BYTE_ARRAY -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    """
+                                                for(e in ${prop.name}.values){
+                                                    $sizeVarNameForThisProp += e.byteArraySerializeSize()
+                                                }
+                                            """.trimIndent()
+                                                )
+
+                                                allImport.add(
+                                                    "m_serialization.utils.ByteBufUtils.byteArraySerializeSize"
+                                                )
+                                            }
+                                        }
+
+                                    }
+
+                                    is MapPrimitiveKeyEnumValue -> {
+                                        funCalculateSerializeSpec.addStatement(
+                                            "var $sizeVarNameForThisProp = 2// map size"
+                                        )
+
+                                        funCalculateSerializeSpec.addStatement(
+                                            "$sizeVarNameForThisProp += ${prop.name}.size * 2 // value size"
+                                        )
+
+
+                                        val varNameForKeyIter = "k"
+
+                                        when (val keyType = prop.keyType) {
+                                            PrimitiveType.INT,
+                                            PrimitiveType.SHORT,
+                                            PrimitiveType.DOUBLE,
+                                            PrimitiveType.BYTE,
+                                            PrimitiveType.BOOL,
+                                            PrimitiveType.FLOAT,
+                                            PrimitiveType.LONG -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    "$sizeVarNameForThisProp += ${keyType.serializeSize()} * ${prop.name}.size // key size"
+                                                )
+                                            }
+
+                                            PrimitiveType.STRING -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    """
+                                                        for($varNameForKeyIter in ${prop.name}.keys){ //key size
+                                                            $sizeVarNameForThisProp += ${varNameForKeyIter}.strSerializeSize()
+                                                        }
+                                                    """.trimIndent()
+                                                )
+                                                allImport.add("m_serialization.utils.ByteBufUtils.strSerializeSize")
+                                            }
+
+                                            PrimitiveType.BYTE_ARRAY -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    """
+                                                        for($varNameForKeyIter in ${prop.name}.keys){ // key size
+                                                            $sizeVarNameForThisProp += ${varNameForKeyIter}.byteArraySerializeSize()
+                                                        }
+                                                    """.trimIndent()
+                                                )
+                                                allImport.add("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
+                                            }
+                                        }
+
+                                    }
+
+                                    is MapPrimitiveKeyObjectValueMetaData -> {
+                                        funCalculateSerializeSpec.addStatement(
+                                            "var $sizeVarNameForThisProp = 2// map size"
+                                        )
+
+                                        when (val keyType = prop.keyType) {
+                                            PrimitiveType.INT,
+                                            PrimitiveType.SHORT,
+                                            PrimitiveType.DOUBLE,
+                                            PrimitiveType.BYTE,
+                                            PrimitiveType.BOOL,
+                                            PrimitiveType.FLOAT,
+                                            PrimitiveType.LONG -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    "$sizeVarNameForThisProp += ${prop.name}.size * ${keyType.serializeSize()} // key size"
+                                                )
+                                            }
+
+                                            PrimitiveType.STRING -> {
+                                                val varNameForKeyIter = "k"
+                                                funCalculateSerializeSpec.addStatement(
+                                                    """
+                                                        for($varNameForKeyIter in ${prop.name}.keys){ // key size
+                                                            $sizeVarNameForThisProp += k.strSerializeSize()
+                                                        }
+                                                    """.trimIndent()
+                                                )
+
+                                                allImport.add("m_serialization.utils.ByteBufUtils.strSerializeSize")
+                                            }
+
+                                            PrimitiveType.BYTE_ARRAY -> {
+                                                val varNameForKeyIter = "k"
+                                                funCalculateSerializeSpec.addStatement(
+                                                    """
+                                                        for($varNameForKeyIter in ${prop.name}.keys){ // key size
+                                                            $sizeVarNameForThisProp += k.byteArraySerializeSize()
+                                                        }
+                                                    """.trimIndent()
+                                                )
+                                                allImport.add("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
+                                            }
+                                        }
+
+
+                                        val varNameForValueIter = "v"
+
+                                        if (prop.valueClassDec.modifiers.contains(Modifier.SEALED)) {
+                                            funCalculateSerializeSpec.addStatement(
+                                                """
+                                                    for($varNameForValueIter in ${prop.name}.values){//value size
+                                                        $sizeVarNameForThisProp += ${varNameForValueIter}.${AbstractPropMetadata.serializeSizeFuncName}($varNameForValueIter)
+                                                    }
+                                                """.trimIndent()
+                                            )
+
+                                        } else {
+                                            funCalculateSerializeSpec.addStatement(
+                                                """
+                                                    for($varNameForValueIter in ${prop.name}.values){//value size
+                                                        $sizeVarNameForThisProp += ${varNameForValueIter}.${AbstractPropMetadata.serializeSizeFuncName}()
+                                                    }
+                                                """.trimIndent()
+                                            )
+                                        }
+
+                                        allImport.addAll(
+                                            prop.valueClassDec.importSerializer().map {
+                                                "$it.${AbstractPropMetadata.serializeSizeFuncName}"
+                                            }
+                                        )
+                                    }
+
+                                    is MapPrimitiveKeyValueMetaData -> {
+                                        funCalculateSerializeSpec.addStatement(
+                                            "var $sizeVarNameForThisProp = 2// map size"
+                                        )
+                                        when (val keyType = prop.keyType) {
+                                            PrimitiveType.INT,
+                                            PrimitiveType.SHORT,
+                                            PrimitiveType.DOUBLE,
+                                            PrimitiveType.BYTE,
+                                            PrimitiveType.BOOL,
+                                            PrimitiveType.FLOAT,
+                                            PrimitiveType.LONG -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    "$sizeVarNameForThisProp += ${keyType.serializeSize()} * ${prop.name}.size // key type"
+                                                )
+                                            }
+
+                                            PrimitiveType.STRING -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    "$sizeVarNameForThisProp += ${prop.name}.keys.asSequence().map{it.strSerializeSize()}.sum() // key size"
+                                                )
+                                                allImport.add("m_serialization.utils.ByteBufUtils.strSerializeSize")
+                                            }
+
+                                            PrimitiveType.BYTE_ARRAY -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    "$sizeVarNameForThisProp += ${prop.name}.keys.asSequence().map{it.byteArraySerializeSize()}.sum() // key size"
+                                                )
+                                                allImport.add("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
+                                            }
+                                        }
+
+                                        when (val valueType = prop.valueType) {
+                                            PrimitiveType.INT,
+                                            PrimitiveType.SHORT,
+                                            PrimitiveType.DOUBLE,
+                                            PrimitiveType.BYTE,
+                                            PrimitiveType.BOOL,
+                                            PrimitiveType.FLOAT,
+                                            PrimitiveType.LONG -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    "$sizeVarNameForThisProp += ${valueType.serializeSize()} * ${prop.name}.size// value size"
+                                                )
+                                            }
+
+                                            PrimitiveType.STRING -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    "$sizeVarNameForThisProp += ${prop.name}.values.asSequence().map{it.strSerializeSize()}.sum() // key size"
+                                                )
+                                                allImport.add("m_serialization.utils.ByteBufUtils.strSerializeSize")
+                                            }
+
+                                            PrimitiveType.BYTE_ARRAY -> {
+                                                funCalculateSerializeSpec.addStatement(
+                                                    "$sizeVarNameForThisProp += ${prop.name}.values.asSequence().map{it.byteArraySerializeSize()}.sum() // key size"
+                                                )
+                                                allImport.add("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            is ObjectPropMetaData -> {
+                                // call serialize size của class này
+                                funCalculateSerializeSpec.addStatement(
+                                    prop.expressionForCalSize(sizeVarNameForThisProp)
+                                )
+                                allImport.addAll(prop.addImportForCalculateSize())
+                            }
                         }
                     }
+                    val sum = allSizeVarName.joinToString(" + ")
+                    funCalculateSerializeSpec.addStatement("return $sum")
+                    Pair(listOf(funCalculateSerializeSpec.build()), allImport)
+                } else {
+                    funCalculateSerializeSpec.addStatement("return 0")
+                    Pair(listOf(funCalculateSerializeSpec.build()), allImport)
                 }
-
-                val sum = allSizeVarName.joinToString(" + ")
-
-                funCalculateSerializeSpec.addStatement("return $sum")
-                Pair(listOf(funCalculateSerializeSpec.build()), allImport)
             }
         }
 

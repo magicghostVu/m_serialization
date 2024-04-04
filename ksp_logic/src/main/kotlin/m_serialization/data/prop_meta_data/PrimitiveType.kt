@@ -36,6 +36,8 @@ enum class PrimitiveType(val className: String) {
                 emptySet()
             )
         }
+
+        override fun serializeSize() = 4
     },
 
     SHORT(Short::class.qualifiedName!!) {
@@ -69,6 +71,8 @@ enum class PrimitiveType(val className: String) {
                 emptySet()
             )
         }
+
+        override fun serializeSize() = 2
     },
     DOUBLE(Double::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -100,6 +104,8 @@ enum class PrimitiveType(val className: String) {
                 emptySet()
             )
         }
+
+        override fun serializeSize() = 8
     },
     BYTE(Byte::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -131,6 +137,8 @@ enum class PrimitiveType(val className: String) {
                 emptySet()
             )
         }
+
+        override fun serializeSize() = 1
     },
     BOOL(Boolean::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -160,6 +168,7 @@ enum class PrimitiveType(val className: String) {
             )
         }
 
+        override fun serializeSize() = 1
     },
     FLOAT(Float::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -189,6 +198,8 @@ enum class PrimitiveType(val className: String) {
                 emptySet()
             )
         }
+
+        override fun serializeSize() = 4
     },
     LONG(Long::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -217,6 +228,8 @@ enum class PrimitiveType(val className: String) {
                 emptySet()
             )
         }
+
+        override fun serializeSize() = 8
     },
     STRING(String::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -244,6 +257,10 @@ enum class PrimitiveType(val className: String) {
                 "var $varName = $propName.strSerializeSize()",
                 setOf("m_serialization.utils.ByteBufUtils.strSerializeSize")
             )
+        }
+
+        override fun serializeSize(): Int {
+            throw IllegalArgumentException("wrong call, review code")
         }
     },
 
@@ -275,6 +292,10 @@ enum class PrimitiveType(val className: String) {
                 setOf("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
             )
         }
+
+        override fun serializeSize(): Int {
+            throw IllegalArgumentException("wrong call, review code")
+        }
     };
 
     abstract fun writeToBufferExpression(bufferVarName: String, varName: String): String;
@@ -289,7 +310,9 @@ enum class PrimitiveType(val className: String) {
     ): String
 
 
-    abstract fun expressionAndImportForCalSerializeSize(varName: String, propName:String):Pair<String,Set<String>>
+    abstract fun expressionAndImportForCalSerializeSize(varName: String, propName: String): Pair<String, Set<String>>
+
+    abstract fun serializeSize(): Int
 
 
     companion object {
