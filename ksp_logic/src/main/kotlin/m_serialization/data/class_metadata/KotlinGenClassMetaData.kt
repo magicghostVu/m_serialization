@@ -592,7 +592,6 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                                         funCalculateSerializeSpec.addStatement(
                                             "var $sizeVarNameForThisProp = 2// map size"
                                         )
-
                                         when (val keyType = prop.keyType) {
                                             PrimitiveType.INT,
                                             PrimitiveType.SHORT,
@@ -631,29 +630,21 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                                                 allImport.add("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
                                             }
                                         }
-
-
                                         val varNameForValueIter = "v"
+                                        val expressionCalSizeOfObject =
+                                            if (prop.valueClassDec.modifiers.contains(Modifier.SEALED)) {
+                                                "$varNameForValueIter.${AbstractPropMetadata.serializeSizeFuncName}($varNameForValueIter)"
+                                            } else {
+                                                "$varNameForValueIter.${AbstractPropMetadata.serializeSizeFuncName}()"
+                                            }
 
-                                        if (prop.valueClassDec.modifiers.contains(Modifier.SEALED)) {
-                                            funCalculateSerializeSpec.addStatement(
-                                                """
-                                                    for($varNameForValueIter in ${prop.name}.values){//value size
-                                                        $sizeVarNameForThisProp += ${varNameForValueIter}.${AbstractPropMetadata.serializeSizeFuncName}($varNameForValueIter)
-                                                    }
-                                                """.trimIndent()
-                                            )
-
-                                        } else {
-                                            funCalculateSerializeSpec.addStatement(
-                                                """
-                                                    for($varNameForValueIter in ${prop.name}.values){//value size
-                                                        $sizeVarNameForThisProp += ${varNameForValueIter}.${AbstractPropMetadata.serializeSizeFuncName}()
-                                                    }
-                                                """.trimIndent()
-                                            )
+                                        funCalculateSerializeSpec.addStatement(
+                                            """
+                                        for($varNameForValueIter in ${prop.name}.values){ //value size 
+                                            $sizeVarNameForThisProp += $expressionCalSizeOfObject
                                         }
-
+                                    """.trimIndent()
+                                        )
                                         allImport.addAll(
                                             prop.valueClassDec.importSerializer().map {
                                                 "$it.${AbstractPropMetadata.serializeSizeFuncName}"
