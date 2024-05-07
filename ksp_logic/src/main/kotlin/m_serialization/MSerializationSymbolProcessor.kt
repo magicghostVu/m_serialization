@@ -71,17 +71,17 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
 
-        val gdGenCofSymbols = resolver.getSymbolsWithAnnotation(
+        val genCodeSymbol = resolver.getSymbolsWithAnnotation(
             GenCodeConf::class
                 .qualifiedName!!
         ).toList()
 
-        val gdGenConf: GenCodeConf = if (gdGenCofSymbols.isEmpty()) {
+        val genCodeConfig: GenCodeConf = if (genCodeSymbol.isEmpty()) {
             GenCodeConf()
-        } else if (gdGenCofSymbols.size > 1) {
-            throw IllegalArgumentException("ambiguous config for gd gen code, had more than 1 gdgenconf")
+        } else if (genCodeSymbol.size > 1) {
+            throw IllegalArgumentException("ambiguous config for gd gen code, had more than 1 codegen config")
         } else {
-            val c = gdGenCofSymbols
+            val c = genCodeSymbol
                 .first()
                 .annotations
                 .filter {
@@ -90,17 +90,19 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 .toList()
 
             if (c.size > 1) {
-                throw IllegalArgumentException("ambiguous config for gd gen code, had more than 1 gdgenconf")
+                throw IllegalArgumentException("ambiguous config for gen code config, had more than 1 codegen config")
             }
             var sourceGenRootFolder = ""
+            var genMetadata: Boolean = true
             c[0].arguments.forEach {
                 val name = it.name!!.asString()
                 when (name) {
                     "sourceGenRootFolder" -> sourceGenRootFolder = it.value as String
+                    "genMetadata" -> genMetadata = it.value as Boolean
                 }
             }
-
-            GenCodeConf(sourceGenRootFolder)
+            logger.warn("source gen root folder: $sourceGenRootFolder, genMetadata: $genMetadata")
+            GenCodeConf(sourceGenRootFolder, genMetadata)
         }
 
 
@@ -266,8 +268,8 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
                 val kotlinCodeGen = KotlinGenClassMetaData()
                 val jsCodeGen = JSGenClassMetaData()
-                val tsCodegen = TsGenClassMetaData(gdGenConf.sourceGenRootFolder)
-                val gdCodeGen = GdGenClassMetaData(gdGenConf.sourceGenRootFolder)
+                val tsCodegen = TsGenClassMetaData(genCodeConfig.sourceGenRootFolder)
+                val gdCodeGen = GdGenClassMetaData(genCodeConfig.sourceGenRootFolder)
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
@@ -311,9 +313,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         //logger.warn("all hash is ${allHash.contentToString()}")
         val protocolVersion = allHash.contentHashCode()
         JSGenClassMetaData.outputFile.setVersion(protocolVersion);
-        val allGenProtocolVersion = listOf<IGenFileProtocolVersion>(
+        val allGenProtocolVersion = listOf(
             KotlinGenProtocolVersion(),
-            TsGenFileProtocolVersion(gdGenConf.sourceGenRootFolder),
+            TsGenFileProtocolVersion(genCodeConfig.sourceGenRootFolder),
             GdGenFileProtocolVersion,
         )
 
@@ -323,9 +325,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
         // gen code for protocol version based all hash
         if (!protocolVersionGenerated) {
-            // todo: gen file protocol version
-            allGenProtocolVersion.forEach {
-                it.genFileProtocolVersion(env.codeGenerator, protocolVersion)
+            if (genCodeConfig.genMetadata) {
+                // todo: gen file protocol version
+                allGenProtocolVersion.forEach {
+                    it.genFileProtocolVersion(env.codeGenerator, protocolVersion)
+                }
             }
             protocolVersionGenerated = true
         }
