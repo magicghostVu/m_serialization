@@ -290,8 +290,8 @@ object KSClassDecUtils {
     fun KSClassDeclaration.getAllEnumEntrySimpleName(): List<String> {
         val result = mutableListOf<String>()
         declarations.forEach {
-            if (it is KSClassDeclaration) {
-                //logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
+            if (it is KSClassDeclaration && it.classKind == ClassKind.ENUM_ENTRY) {
+                logger.warn("enum entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
                 result.add(it.simpleName.asString())
             }
         }
@@ -301,7 +301,7 @@ object KSClassDecUtils {
     fun KSClassDeclaration.getAllEnumEntryWithIndex(): List<Pair<String, Int>> {
         val result = mutableListOf<Pair<String, Int>>()
         declarations.forEach {
-            if (it is KSClassDeclaration) {
+            if (it is KSClassDeclaration && it.classKind == ClassKind.ENUM_ENTRY) {
                 //logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
                 result.add(Pair(it.simpleName.asString(), result.size))
             }
