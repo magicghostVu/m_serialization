@@ -1,15 +1,34 @@
 package pp
 
+import io.netty.buffer.Unpooled
+import m_serialization.annotations.GenCodeConf
 import m_serialization.annotations.MSerialization
+import pp.EnumMapMSerializer.serializeSize
+import pp.EnumMapMSerializer.writeTo
 import pp.FFMSerializer.serializeSize
+import pp.FFMSerializer.writeTo
 
 fun main() {
-    val ff = FF(emptyList(), emptyList(), emptyList())
+    val ff = FF(listOf("phuvh"), emptyList(), emptyList())
+    val buffer = Unpooled.buffer()
+    ff.writeTo(buffer)
     val gg = ff.serializeSize()
-    println("serialize size is $gg")
+    println("serialize size is $gg, written size is ${buffer.writerIndex()}")
+
+    val enumMap = EnumMap(
+        mapOf(EEE.E1 to EEE.E1 ),
+        0,
+        mapOf(EEE.E1 to 10),
+        mapOf( EEE.E1 to C1(9)),
+        mapOf(1 to EEE.E1, 2 to EEE.E1),
+    )
+    buffer.resetWriterIndex()
+    enumMap.writeTo(buffer)
+    println("data written is ${buffer.writerIndex()}, data calculated is ${enumMap.serializeSize()}")
 }
 
 @MSerialization
+@GenCodeConf("benchmark", false)
 class EnumMap(
     val m: Map<EEE, EEE>,
     val f: Int,
