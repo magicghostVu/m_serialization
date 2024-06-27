@@ -291,7 +291,6 @@ object KSClassDecUtils {
         val result = mutableListOf<String>()
         declarations.forEach {
             if (it is KSClassDeclaration && it.classKind == ClassKind.ENUM_ENTRY) {
-                logger.warn("enum entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
                 result.add(it.simpleName.asString())
             }
         }

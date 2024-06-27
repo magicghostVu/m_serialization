@@ -20,6 +20,10 @@ import m_serialization.utils.KSClassDecUtils.importSerializer
 class KotlinGenClassMetaData() : ClassMetaData() {
 
 
+    override fun languageGen(): LanguageGen {
+        return LanguageGen.KOTLIN
+    }
+
     override fun doGenCode(codeGenerator: CodeGenerator) {
         val objectName = classDec.getSerializerObjectName()
         val fileBuilder = FileSpec.builder(

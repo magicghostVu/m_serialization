@@ -26,6 +26,10 @@ class JSGenClassMetaData() : ClassMetaData() {
 
     }
 
+    override fun languageGen(): LanguageGen {
+        return LanguageGen.JAVASCRIPT
+    }
+
     override fun doGenCode(codeGenerator: CodeGenerator) {
         if (classDec.classKind == ClassKind.ENUM_CLASS)
             outputFile.addEnum(JSEnum(classDec))
@@ -64,6 +68,7 @@ sealed class JSElement() {
             PrimitiveType.FLOAT,
             PrimitiveType.LONG,
             PrimitiveType.INT -> "number"
+
             PrimitiveType.BOOL -> "boolean"
             PrimitiveType.STRING -> "string"
             PrimitiveType.BYTE_ARRAY -> "number[]"
@@ -130,9 +135,11 @@ class JSClass(
             is ListObjectPropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return this.${rawFunName(it.elementClass, classToTag)}0(${bufferVar()})"
             }}.bind(this,${bufferVar()}))"
+
             is ListPrimitivePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return ${getExtractPrimitive(it.type)}"
             }}.bind(this,${bufferVar()}))"
+
             is ListEnumPropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return ${bufferVar()}.readEnum()"
             }}.bind(this,${bufferVar()}))"
@@ -141,6 +148,7 @@ class JSClass(
             is MapPrimitiveKeyValueMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${getExtractPrimitive(it.keyType)},value: ${getExtractPrimitive(it.valueType)}}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
+
             is MapPrimitiveKeyObjectValueMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${getExtractPrimitive(it.keyType)},value: this.${
                     rawFunName(
@@ -149,6 +157,7 @@ class JSClass(
                     )
                 }0(${bufferVar()})}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
+
             is MapPrimitiveKeyEnumValue -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${getExtractPrimitive(it.keyType)},value: this.${bufferVar()}.readEnum()}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
@@ -156,6 +165,7 @@ class JSClass(
             is MapEnumKeyEnumValue -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${bufferVar()}.readEnum(),value: this.${bufferVar()}.readEnum()}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
+
             is MapEnumKeyObjectValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${bufferVar()}.readEnum(),value: this.${
                     rawFunName(
@@ -164,6 +174,7 @@ class JSClass(
                     )
                 }0(${bufferVar()})}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
+
             is MapEnumKeyPrimitiveValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${bufferVar()}.readEnum(),value: ${getExtractPrimitive(it.valueType)}}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
@@ -208,6 +219,7 @@ class JSClass(
                     classToTag
                 )
             }2(${bufferVar()},${objVar()}.${it.name});"
+
             is EnumPropMetaData -> "${bufferVar()}.writeEnum(${objVar()}.${it.name});"
 
             //list
@@ -215,10 +227,12 @@ class JSClass(
                     "${objVar()}.${it.name}.forEach(function(${bufferVar()}, ${subObjVar()}){${
                         "this.${rawFunName(it.elementClass, classToTag)}2(${bufferVar()}, ${subObjVar()})"
                     }}.bind(this,${bufferVar()}));"
+
             is ListPrimitivePropMetaData -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
                     "${objVar()}.${it.name}.forEach(function(${bufferVar()}, ${subObjVar()}){${
                         getZipPrimitive(it.type, bufferVar(), subObjVar())
                     }}.bind(this,${bufferVar()}));"
+
             is ListEnumPropMetaData -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
                     "${objVar()}.${it.name}.forEach(function(${bufferVar()}, ${subObjVar()}){${
                         "${bufferVar()}.writeEnum(${subObjVar()})"

@@ -309,6 +309,26 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         // add other code gen protocol version here
 
 
+        // rebuild parent for all class in same family
+
+        val familyToAllCodeGen = mutableMapOf<LanguageGen, MutableMap<KSClassDeclaration, ClassMetaData>>()
+        allCodeGen.forEach {
+            val allClassForThisFamily = familyToAllCodeGen.computeIfAbsent(it.languageGen()) { mutableMapOf() }
+            allClassForThisFamily[it.classDec] = it
+        }
+
+        familyToAllCodeGen.forEach { (lanGen, classDecToMeta) ->
+            classDecToMeta.forEach { (classDec, meta) ->
+                val allDirectChildren = classDec.getSealedSubclasses()
+                allDirectChildren.forEach { childClassDec ->
+                    val metaOfChild = classDecToMeta.getValue(childClassDec)
+                    metaOfChild.parent = meta
+                    //logger.warn("child ${childClassDec.simpleName.asString()} had parent ${meta.classDec.simpleName.asString()} at $lanGen")
+                }
+            }
+        }
+
+
         val allHash = classDecToHash.values.toIntArray()
         //logger.warn("all hash is ${allHash.contentToString()}")
         val protocolVersion = allHash.contentHashCode()
@@ -318,7 +338,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             TsGenFileProtocolVersion(genCodeConfig.sourceGenRootFolder),
             GdGenFileProtocolVersion,
         )
-
         allCodeGen.forEach {
             it.doGenCode(env.codeGenerator)
         }

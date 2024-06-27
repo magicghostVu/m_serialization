@@ -61,6 +61,10 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         return classDec.modifiers.contains(Modifier.SEALED)
     }
 
+    override fun languageGen(): LanguageGen {
+        return LanguageGen.TYPESCRIPT
+    }
+
     override fun doGenCode(codeGenerator: CodeGenerator) {
         full_pk = "$root.${classDec.packageName.asString()}"
         val writer = TsWriter(
@@ -192,7 +196,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                             parentDec.primaryConstructor!!.parameters.joinToString(", ") { it.name!!.asString() }
                         line("super($params)")
                     }
-                    otherProps.forEach {prop ->
+                    otherProps.forEach { prop ->
                         line("this.${prop.name} = ${getDefaultValue(prop, true)}")
                     }
                 }
@@ -207,7 +211,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     }
                 } else {
                     val firstChild = classDec.getAllActualChild().getOrNull(0);
-                    if (firstChild!=null) {
+                    if (firstChild != null) {
                         line("static default(): $classSig")
                         withBlock {
                             val childSig = getTypeSig(firstChild, fullName = true);
@@ -508,18 +512,81 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
     }
 
     private fun getStr(varName: String, prop: AbstractPropMetadata) = when (prop) {
-        is ListObjectPropMetaData -> "`Array<${getTypeSig(prop.elementClass, false)}>(\${$varName.length}) [\\n\${t2}\${$varName.map(n => n._to_string_tab(tab + 2)).join(',\\n' + t2)}\\n\${t1}]`"
-        is ListPrimitivePropMetaData -> "`Array<${getTypeSig(prop.type, false)}>(\${$varName.length}) [\\n\${t2}\${$varName.join(',\\n' + t2)}\\n\${t1}]`"
-        is MapPrimitiveKeyObjectValueMetaData -> "`Map<${getTypeSig(prop.keyType, false)}, ${getTypeSig(prop.valueClassDec, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!._to_string_tab(tab + 2)}`).join(',\\n' + t2)}\\n\${t1}]`"
-        is MapPrimitiveKeyValueMetaData -> "`Map<${getTypeSig(prop.keyType, false)}, ${getTypeSig(prop.valueType, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!}`).join(',\\n' + t2)}\\n\${t1}]`"
+        is ListObjectPropMetaData -> "`Array<${
+            getTypeSig(
+                prop.elementClass,
+                false
+            )
+        }>(\${$varName.length}) [\\n\${t2}\${$varName.map(n => n._to_string_tab(tab + 2)).join(',\\n' + t2)}\\n\${t1}]`"
+
+        is ListPrimitivePropMetaData -> "`Array<${
+            getTypeSig(
+                prop.type,
+                false
+            )
+        }>(\${$varName.length}) [\\n\${t2}\${$varName.join(',\\n' + t2)}\\n\${t1}]`"
+
+        is MapPrimitiveKeyObjectValueMetaData -> "`Map<${
+            getTypeSig(
+                prop.keyType,
+                false
+            )
+        }, ${
+            getTypeSig(
+                prop.valueClassDec,
+                false
+            )
+        }>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!._to_string_tab(tab + 2)}`).join(',\\n' + t2)}\\n\${t1}]`"
+
+        is MapPrimitiveKeyValueMetaData -> "`Map<${getTypeSig(prop.keyType, false)}, ${
+            getTypeSig(
+                prop.valueType,
+                false
+            )
+        }>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!}`).join(',\\n' + t2)}\\n\${t1}]`"
+
         is ObjectPropMetaData -> "$varName._to_string_tab(tab + 1)"
         is PrimitivePropMetaData -> varName
         is EnumPropMetaData -> varName
-        is ListEnumPropMetaData -> "`Array<${getTypeSig(prop.enumClass, false)}>(\${$varName.length}) [\\n\${t2}\${$varName.join(',\\n' + t2)}\\n\${t1}]`"
-        is MapEnumKeyEnumValue -> "`Map<${getTypeSig(prop.enumKey, false)}, ${getTypeSig(prop.enumValue, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!}`).join(',\\n' + t2)}\\n\${t1}]`"
-        is MapEnumKeyObjectValuePropMetaData -> "`Map<${getTypeSig(prop.enumKey, false)}, ${getTypeSig(prop.valueType, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!._to_string_tab(tab + 2)}`).join(',\\n' + t2)}\\n\${t1}]`"
-        is MapEnumKeyPrimitiveValuePropMetaData -> "`Map<${getTypeSig(prop.enumKey, false)}, ${getTypeSig(prop.valueType, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!}`).join(',\\n' + t2)}\\n\${t1}]`"
-        is MapPrimitiveKeyEnumValue -> "`Map<${getTypeSig(prop.keyType, false)}, ${getTypeSig(prop.enumValue, false)}>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!}`).join(',\\n' + t2)}\\n\${t1}]`"
+        is ListEnumPropMetaData -> "`Array<${
+            getTypeSig(
+                prop.enumClass,
+                false
+            )
+        }>(\${$varName.length}) [\\n\${t2}\${$varName.join(',\\n' + t2)}\\n\${t1}]`"
+
+        is MapEnumKeyEnumValue -> "`Map<${getTypeSig(prop.enumKey, false)}, ${
+            getTypeSig(
+                prop.enumValue,
+                false
+            )
+        }>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!}`).join(',\\n' + t2)}\\n\${t1}]`"
+
+        is MapEnumKeyObjectValuePropMetaData -> "`Map<${getTypeSig(prop.enumKey, false)}, ${
+            getTypeSig(
+                prop.valueType,
+                false
+            )
+        }>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!._to_string_tab(tab + 2)}`).join(',\\n' + t2)}\\n\${t1}]`"
+
+        is MapEnumKeyPrimitiveValuePropMetaData -> "`Map<${
+            getTypeSig(
+                prop.enumKey,
+                false
+            )
+        }, ${
+            getTypeSig(
+                prop.valueType,
+                false
+            )
+        }>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!}`).join(',\\n' + t2)}\\n\${t1}]`"
+
+        is MapPrimitiveKeyEnumValue -> "`Map<${getTypeSig(prop.keyType, false)}, ${
+            getTypeSig(
+                prop.enumValue,
+                false
+            )
+        }>(\${$varName.size}) [\\n\${t2}\${Array.from($varName.keys(), key => `\${key}: \${$varName.get(key)!}`).join(',\\n' + t2)}\\n\${t1}]`"
     }
 
     private fun withOverridee(it: AbstractPropMetadata) =
@@ -546,6 +613,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
             val ts = getTypeSig(prop.classDec, fullName)
             "$ts.default()"
         }
+
         is PrimitivePropMetaData -> when (prop.type) {
             PrimitiveType.INT -> "0"
             PrimitiveType.SHORT -> "0"
@@ -557,6 +625,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
             PrimitiveType.STRING -> "''"
             PrimitiveType.BYTE_ARRAY -> "new fr.GsnEnetPacket()"
         }
+
         is EnumPropMetaData -> "0"
         is ListEnumPropMetaData -> "[]"
         is MapEnumKeyEnumValue -> "new Map()"
@@ -565,19 +634,49 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         is MapPrimitiveKeyEnumValue -> "new Map()"
 
     }
+
     private fun getTypeSig(prop: AbstractPropMetadata, fullName: Boolean = true) = when (prop) {
         is ListObjectPropMetaData -> "Array<${getTypeSig(prop.elementClass, fullName)}>"
         is ListPrimitivePropMetaData -> "Array<${getTypeSig(prop.type, fullName)}>"
-        is MapPrimitiveKeyObjectValueMetaData -> "Map<${getTypeSig(prop.keyType, fullName)}, ${getTypeSig(prop.valueClassDec, fullName)}>"
-        is MapPrimitiveKeyValueMetaData -> "Map<${getTypeSig(prop.keyType, fullName)}, ${getTypeSig(prop.valueType, fullName)}>"
+        is MapPrimitiveKeyObjectValueMetaData -> "Map<${
+            getTypeSig(
+                prop.keyType,
+                fullName
+            )
+        }, ${getTypeSig(prop.valueClassDec, fullName)}>"
+
+        is MapPrimitiveKeyValueMetaData -> "Map<${getTypeSig(prop.keyType, fullName)}, ${
+            getTypeSig(
+                prop.valueType,
+                fullName
+            )
+        }>"
+
         is ObjectPropMetaData -> getTypeSig(prop.classDec, fullName)
         is PrimitivePropMetaData -> getTypeSig(prop.type, fullName)
         is EnumPropMetaData -> getTypeSig(prop.enumClass, fullName)
         is ListEnumPropMetaData -> "Array<${getTypeSig(prop.enumClass, fullName)}>"
         is MapEnumKeyEnumValue -> "Map<${getTypeSig(prop.enumKey, fullName)}, ${getTypeSig(prop.enumValue, fullName)}>"
-        is MapEnumKeyObjectValuePropMetaData -> "Map<${getTypeSig(prop.enumKey, fullName)}, ${getTypeSig(prop.valueType, fullName)}>"
-        is MapEnumKeyPrimitiveValuePropMetaData -> "Map<${getTypeSig(prop.enumKey, fullName)}, ${getTypeSig(prop.valueType, fullName)}>"
-        is MapPrimitiveKeyEnumValue -> "Map<${getTypeSig(prop.keyType, fullName)}, ${getTypeSig(prop.enumValue, fullName)}>"
+        is MapEnumKeyObjectValuePropMetaData -> "Map<${getTypeSig(prop.enumKey, fullName)}, ${
+            getTypeSig(
+                prop.valueType,
+                fullName
+            )
+        }>"
+
+        is MapEnumKeyPrimitiveValuePropMetaData -> "Map<${
+            getTypeSig(
+                prop.enumKey,
+                fullName
+            )
+        }, ${getTypeSig(prop.valueType, fullName)}>"
+
+        is MapPrimitiveKeyEnumValue -> "Map<${getTypeSig(prop.keyType, fullName)}, ${
+            getTypeSig(
+                prop.enumValue,
+                fullName
+            )
+        }>"
     }
 
     private fun getTypeSig(kclass: KSClassDeclaration, fullName: Boolean = true) =

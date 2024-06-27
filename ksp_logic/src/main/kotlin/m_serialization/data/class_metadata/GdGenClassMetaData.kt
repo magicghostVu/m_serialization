@@ -35,6 +35,11 @@ class GdStream(private val stream: OutputStream, private val indent: Int = 0) {
 }
 
 class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
+
+    override fun languageGen(): LanguageGen {
+        return LanguageGen.GDSCRIPT
+    }
+
     val root = if (rootFolderGen == "") {
         "m"
     } else {
