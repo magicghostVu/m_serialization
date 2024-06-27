@@ -102,16 +102,9 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 "/// <reference path='$rel.ts' />"
             )
         }
-
-        val parent = run {
-            val parent =
-                classDec.superTypes.find { (it.resolve().declaration as KSClassDeclaration).classKind == ClassKind.CLASS }
-            if (parent != null && globalUniqueTag.contains(parent.resolve().declaration)) {
-                parent
-            } else null
-        }
+        val parent = this.parent
         if (parent != null) {
-            val parentDec = parent.resolve().declaration as KSClassDeclaration
+            val parentDec = parent.classDec
             val path =
                 Path("$root.${parentDec.packageName.asString()}.${parentDec.simpleName.asString()}".replace(".", "/"))
             val rel = path.relativeTo(currentPath).invariantSeparatorsPathString
@@ -135,6 +128,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         val isAbstract = isClassAbstract(classDec)
         val props = constructorProps + otherProps
         val classSig = classDec.simpleName.asString()
+        val parent = this.parent
         writer.apply {
             // import deps
             /*refPaths.forEach { classDec ->
@@ -152,13 +146,6 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     )
                 }
             }*/
-            val parent = run {
-                val parent =
-                    classDec.superTypes.find { (it.resolve().declaration as KSClassDeclaration).classKind == ClassKind.CLASS }
-                if (parent != null && globalUniqueTag.contains(parent.resolve().declaration)) {
-                    parent
-                } else null
-            }
             // import base class
             /*if (parent != null) {
                 val parentDec = parent.resolve().declaration as KSClassDeclaration
@@ -169,7 +156,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
             }*/
 
             if (parent != null) {
-                val parentDec = parent.resolve().declaration as KSClassDeclaration
+                val parentDec = parent.classDec
                 line("export ${if (isAbstract) "abstract " else ""}class $classSig extends ${getTypeSig(parentDec)}")
             } else {
                 line("export ${if (isAbstract) "abstract " else ""}class $classSig")
@@ -191,9 +178,8 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 line("constructor($params)")
                 withBlock {
                     if (parent != null) {
-                        val parentDec = parent.resolve().declaration as KSClassDeclaration
                         val params =
-                            parentDec.primaryConstructor!!.parameters.joinToString(", ") { it.name!!.asString() }
+                            parent.constructorProps.joinToString(", ") { it.name }
                         line("super($params)")
                     }
                     otherProps.forEach { prop ->

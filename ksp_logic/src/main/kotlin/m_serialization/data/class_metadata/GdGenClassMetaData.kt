@@ -63,6 +63,7 @@ class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         val isAbstract = isClassAbstract(classDec)
         val props = constructorProps + otherProps
         val classSig = getTypeSig(classDec)
+        val parent = this.parent
         GdStream(
             codeGenerator.createNewFile(
                 Dependencies(false),
@@ -104,15 +105,8 @@ class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     )
                 }
             }
-            val parent = run {
-                val parent =
-                    classDec.superTypes.find { (it.resolve().declaration as KSClassDeclaration).classKind == ClassKind.CLASS }
-                if (parent != null && globalUniqueTag.contains(parent.resolve().declaration)) {
-                    parent
-                } else null
-            }
             if (parent != null) {
-                val parentDec = parent.resolve().declaration as KSClassDeclaration
+                val parentDec = parent.classDec
                 val importName = getTypeSig(parentDec)
                 line(
                     "const ${importName} = preload('res://${root}/${
@@ -124,7 +118,7 @@ class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
             line("class $classSig:")
             withTab {
                 if (parent != null) {
-                    val parentDec = parent.resolve().declaration as KSClassDeclaration
+                    val parentDec = parent.classDec
                     line("extends ${getTypeSig(parentDec)}")
                 } else {
                     line("extends 'res://${root}/IPacket.gd'")
