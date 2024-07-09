@@ -3,6 +3,7 @@ package pp
 import io.netty.buffer.Unpooled
 import m_serialization.annotations.GenCodeConf
 import m_serialization.annotations.MSerialization
+import m_serialization.annotations.TSTypeCodeGen
 import pp.EnumMapMSerializer.serializeSize
 import pp.EnumMapMSerializer.writeTo
 import pp.FFMSerializer.serializeSize
@@ -16,10 +17,10 @@ fun main() {
     println("serialize size is $gg, written size is ${buffer.writerIndex()}")
 
     val enumMap = EnumMap(
-        mapOf(EEE.E1 to EEE.E1 ),
+        mapOf(EEE.E1 to EEE.E1),
         0,
         mapOf(EEE.E1 to 10),
-        mapOf( EEE.E1 to C1(9)),
+        mapOf(EEE.E1 to C1(9)),
         mapOf(1 to EEE.E1, 2 to EEE.E1),
     )
     buffer.resetWriterIndex()
@@ -28,7 +29,7 @@ fun main() {
 }
 
 @MSerialization
-@GenCodeConf("benchmark", false)
+@GenCodeConf("test", false, TSTypeCodeGen.NAME_SPACE)
 class EnumMap(
     val m: Map<EEE, EEE>,
     val f: Int,

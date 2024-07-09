@@ -7,6 +7,7 @@ import com.google.devtools.ksp.symbol.*
 import m_serialization.annotations.GenCodeConf
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
+import m_serialization.annotations.TSTypeCodeGen
 import m_serialization.data.class_metadata.*
 import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
 import m_serialization.data.gen_protocol_version.KotlinGenProtocolVersion
@@ -94,15 +95,22 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
             var sourceGenRootFolder = ""
             var genMetadata: Boolean = true
+            var tsGenType : TSTypeCodeGen = TSTypeCodeGen.NAME_SPACE
             c[0].arguments.forEach {
                 val name = it.name!!.asString()
                 when (name) {
                     "sourceGenRootFolder" -> sourceGenRootFolder = it.value as String
                     "genMetadata" -> genMetadata = it.value as Boolean
+                    "tsTypeCodeGen" -> {
+                        // todo: need better solution to get value of this enum
+                        val typeGenName = it.value!!.toString().split(".").last()
+                        tsGenType = TSTypeCodeGen.valueOf(typeGenName)
+                        logger.warn("ts gen is $tsGenType")
+                    }
                 }
             }
-            logger.warn("source gen root folder: $sourceGenRootFolder, genMetadata: $genMetadata")
-            GenCodeConf(sourceGenRootFolder, genMetadata)
+            logger.warn("source gen root folder: $sourceGenRootFolder, genMetadata: $genMetadata, ts gen type ${tsGenType}")
+            GenCodeConf(sourceGenRootFolder, genMetadata, tsGenType)
         }
 
 
@@ -268,7 +276,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
                 val kotlinCodeGen = KotlinGenClassMetaData()
                 val jsCodeGen = JSGenClassMetaData()
-                val tsCodegen = TsGenClassMetaData(genCodeConfig.sourceGenRootFolder)
+                val tsCodegen = TsGenClassMetaData(genCodeConfig)
                 val gdCodeGen = GdGenClassMetaData(genCodeConfig.sourceGenRootFolder)
 
 

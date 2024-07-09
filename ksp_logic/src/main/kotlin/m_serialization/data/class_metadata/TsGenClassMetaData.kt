@@ -5,6 +5,7 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.Modifier
+import m_serialization.annotations.GenCodeConf
 import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
 import m_serialization.data.prop_meta_data.*
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
@@ -49,13 +50,19 @@ class TsWriter(private val stream: OutputStream) {
 }
 
 
-class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
+class TsGenClassMetaData(private val genCodeConf: GenCodeConf) : ClassMetaData() {
     val root = if (rootFolderGen == "") {
         "m"
     } else {
         rootFolderGen
     }
     lateinit var full_pk: String
+
+    private val rootFolderGen: String
+        get() {
+            return genCodeConf.sourceGenRootFolder
+        }
+
 
     private fun isClassAbstract(classDec: KSClassDeclaration): Boolean {
         return classDec.modifiers.contains(Modifier.SEALED)
