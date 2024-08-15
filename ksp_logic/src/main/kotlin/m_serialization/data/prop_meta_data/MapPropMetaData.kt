@@ -46,7 +46,8 @@ class MapEnumKeyPrimitiveValuePropMetaData(
     enumKey: KSClassDeclaration,
     val valueType: PrimitiveType,
     mapTypeAtSource: MapTypeAtSource
-) : MapEnumKeyPropMetaData(mapTypeAtSource, enumKey) {
+) : MapEnumKeyPropMetaData(mapTypeAtSource, enumKey)
+{
 
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
@@ -142,7 +143,8 @@ class MapEnumKeyObjectValuePropMetaData(
     enumKey: KSClassDeclaration,
     val valueType: KSClassDeclaration,
     mapTypeAtSource: MapTypeAtSource
-) : MapEnumKeyPropMetaData(mapTypeAtSource, enumKey) {
+) : MapEnumKeyPropMetaData(mapTypeAtSource, enumKey)
+{
 
     override fun mtoString(): String {
         return "map<${enumKey.simpleName.asString()},${valueType.simpleName.asString()}>"
@@ -237,7 +239,8 @@ class MapEnumKeyEnumValue(
     enumKey: KSClassDeclaration,
     val enumValue: KSClassDeclaration,
     mapTypeAtSource: MapTypeAtSource
-) : MapEnumKeyPropMetaData(mapTypeAtSource, enumKey) {
+) : MapEnumKeyPropMetaData(mapTypeAtSource, enumKey)
+{
 
     override fun mtoString(): String {
         return "map<${enumKey.simpleName.asString()},${enumValue.simpleName.asString()}>"
@@ -323,7 +326,8 @@ class MapEnumKeyEnumValue(
 }
 
 
-sealed class MapPrimitiveKeyPropMetaData(mapTypeAtSource: MapTypeAtSource) : MapPropMetaData(mapTypeAtSource) {
+sealed class MapPrimitiveKeyPropMetaData(mapTypeAtSource: MapTypeAtSource) : MapPropMetaData(mapTypeAtSource)
+{
     abstract val keyType: PrimitiveType
 }
 
@@ -334,7 +338,8 @@ class MapPrimitiveKeyValueMetaData(
     override val keyType: PrimitiveType,
     val valueType: PrimitiveType,
     mapTypeAtSource: MapTypeAtSource
-) : MapPrimitiveKeyPropMetaData(mapTypeAtSource) {
+) : MapPrimitiveKeyPropMetaData(mapTypeAtSource)
+{
     override fun mtoString(): String {
         return "map<${PrimitiveType.simpleName(keyType)},${PrimitiveType.simpleName(valueType)}>"
     }
@@ -433,7 +438,8 @@ class MapPrimitiveKeyObjectValueMetaData(
     override val keyType: PrimitiveType,
     val valueClassDec: KSClassDeclaration,
     mapTypeAtSource: MapTypeAtSource
-) : MapPrimitiveKeyPropMetaData(mapTypeAtSource) {
+) : MapPrimitiveKeyPropMetaData(mapTypeAtSource)
+{
     override fun mtoString(): String {
         return "map<${PrimitiveType.simpleName(keyType)},${valueClassDec.simpleName.asString()}>"
     }
@@ -533,7 +539,8 @@ class MapPrimitiveKeyEnumValue(
     override val keyType: PrimitiveType,
     val enumValue: KSClassDeclaration,
     mapTypeAtSource: MapTypeAtSource
-) : MapPrimitiveKeyPropMetaData(mapTypeAtSource) {
+) : MapPrimitiveKeyPropMetaData(mapTypeAtSource)
+{
 
     override fun mtoString(): String {
         return "map<${PrimitiveType.simpleName(keyType)},${enumValue.simpleName.asString()}>"
