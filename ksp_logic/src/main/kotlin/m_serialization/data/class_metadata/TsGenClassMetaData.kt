@@ -71,7 +71,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 "ts"
             )
         )
-
+        val fullClass = classDec.packageName.asString() + classDec.simpleName.asString();
         val props = constructorProps + otherProps
         val refPaths = props.flatMap { prop ->
             when (prop) {
@@ -132,6 +132,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         val isAbstract = isClassAbstract(classDec)
         val props = constructorProps + otherProps
         val classSig = classDec.simpleName.asString()
+        val fullClass = "${classDec.packageName.asString()}.$classSig"
         writer.apply {
             // import deps
             /*refPaths.forEach { classDec ->
@@ -198,7 +199,22 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                     line("clone():$classSig")
                     withBlock {
                         line("return new $classSig(${
-                            constructorProps.joinToString(", ") { prop -> "this.${prop.name}" }
+                            constructorProps.joinToString(", ") { prop ->
+                                when (prop) {
+                                    is EnumPropMetaData -> "this.${prop.name}"
+                                    is PrimitivePropMetaData -> "this.${prop.name}"
+                                    is ListEnumPropMetaData -> "Object.assign([],this.${prop.name})"
+                                    is ListPrimitivePropMetaData ->  "Object.assign([],this.${prop.name})"
+                                    is ListObjectPropMetaData -> "this.${prop.name}.map(x=>x.clone())"
+                                    is MapEnumKeyEnumValue -> "Object.assign({},this.${prop.name})" 
+                                    is MapEnumKeyPrimitiveValuePropMetaData  -> "Object.assign({},this.${prop.name})"
+                                    is MapPrimitiveKeyEnumValue  -> "Object.assign({},this.${prop.name})"
+                                    is MapPrimitiveKeyValueMetaData  -> "Object.assign({},this.${prop.name})"
+                                    is MapEnumKeyObjectValuePropMetaData ->"QuickOperator.map(this.${prop.name},x=>x.clone())"
+                                    is MapPrimitiveKeyObjectValueMetaData ->"QuickOperator.map(this.${prop.name},x=>x.clone())"
+                                    is ObjectPropMetaData ->"this.${prop.name}.clone()"
+                                }
+                            }
                         })");
                     }
                     line("static create(${
@@ -217,7 +233,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 }
                 // serialize
                 if (!isAbstract) {
-                    line("//@ts-ignore\nzip_in(buffer: $outBufferClass, with_tag: boolean): void")
+                    line("// @ts-ignore\nzip_in(buffer: $outBufferClass, with_tag: boolean): void")
                     withBlock {
                         line("if (with_tag) { buffer.putShort($tag); }")
                         for (prop in props) {
@@ -344,7 +360,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                         }
                     }
                 } else {
-                    line("//@ts-ignore\nabstract zip_in(buffer: $inBufferClass, with_tag: boolean): void")
+                    line("// @ts-ignore\nabstract zip_in(buffer: $outBufferClass, with_tag: boolean): void")
                 }
 //                // to bytes
 //                line("to_enet_bytes(with_tag: boolean): fr.GsnEnetPacket")
@@ -355,41 +371,49 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
 //                    line("return p;")
 //                }
                 // deserialize
-                line("//@ts-ignore\n static zip(buffer: $inBufferClass, msg:JavaClass)")
+
+                line("static Serializer: PacketSerializer<$fullClass> =")
                 withBlock {
-                    line("if(!(msg instanceof $classSig)) throw new Error('msg not instance of $classSig')");
-                    line("msg.zip_in(buffer,false)")
+                    line("extract(buffer: $inBufferClass): $fullClass")
+                    withBlock {
+                        line("return $fullClass.extract(buffer);");
+                    }
+                    line(",")
+                    line("zip(buffer: $outBufferClass, msg: JavaClass): void")
+                    withBlock {
+                        line("if (!(msg instanceof $fullClass)) throw new Error ('msg not instance of $fullClass')");
+                        line("msg.zip_in(buffer, false);");
+                    }
                 }
-                line("//@ts-ignore\n static extract(buffer: $inBufferClass): $classSig")
+
+                line("// @ts-ignore\n static extract(buffer: $inBufferClass): $classSig")
                 if (!isAbstract) withBlock {
                     props.forEach { prop ->
                         val varName = prop.name
                         val typeSig = getTypeSig(prop)
                         when (prop) {
                             is ListObjectPropMetaData -> {
+                                val elementSig = getTypeSig(prop.elementClass);
                                 line("// ListObjectPropMetaData")
-                                line("const $varName = $typeSig(buffer.getShort())")
-                                line("for (let i = $varName.length;i>0;i--)")
-                                withBlock {
-                                    val elementSig = getTypeSig(prop.elementClass)
-                                    line("const val = $elementSig.extract(buffer)")
-                                    line("$varName[i] = val")
-                                }
+                                line(
+                                    "const $varName = Array(buffer.getShort()).fill(0).map((_,i)=>${
+                                        "$elementSig.extract(buffer)"
+                                    })"
+                                )
                             }
 
                             is ListPrimitivePropMetaData -> {
                                 line("// ListPrimitivePropMetaData")
-                                line("const $varName = $typeSig(buffer.getShort())")
-                                line("for (let i = $varName.length;i>0;i--)")
-                                withBlock {
-                                    bufferReadPrimitive(prop.type, "val")
-                                    line("$varName[i] = val")
-                                }
+                                line(
+                                    "const $varName = Array(buffer.getShort()).fill(0).map((_,i)=>${
+                                        bufferReadPrimitive(prop.type)
+                                    })"
+                                )
                             }
 
                             is MapPrimitiveKeyObjectValueMetaData -> {
                                 line("// MapObjectValueMetaData")
-                                line("const $varName:$typeSig = {}")
+                                line("// @ts-ignore\nconst $varName:$typeSig = {}")
                                 line("for (let i = buffer.getShort();i>0;i--)")
                                 withBlock {
                                     bufferReadPrimitive(prop.keyType, "key")
@@ -400,7 +424,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
 
                             is MapPrimitiveKeyValueMetaData -> {
                                 line("// MapPrimitiveValueMetaData")
-                                line("const $varName:$typeSig = {}")
+                                line("// @ts-ignore\nconst $varName:$typeSig = {}")
                                 line("for (let i = buffer.getShort();i>0;i--)")
                                 withBlock {
                                     bufferReadPrimitive(prop.keyType, "key")
@@ -420,16 +444,16 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                             is EnumPropMetaData -> line("const $varName = buffer.getShort() as ${getTypeSig(prop.enumClass)}")
                             is ListEnumPropMetaData -> {
                                 line("// ListEnumPropMetaData")
-                                line("const $varName = $typeSig(buffer.getShort())")
-                                line("for (let i = $varName!.length;i>0;i--)")
-                                withBlock {
-                                    line("$varName[i] = buffer.getShort() as ${getTypeSig(prop.enumClass)}")
-                                }
+                                line(
+                                    "const $varName = Array(buffer.getShort()).fill(0).map((_,i)=>${
+                                        "buffer.getShort() as ${getTypeSig(prop.enumClass)}"
+                                    })"
+                                )
                             }
 
                             is MapEnumKeyEnumValue -> {
                                 line("// MapEnumKeyPrimitiveValuePropMetaData")
-                                line("const $varName:$typeSig = {}")
+                                line("// @ts-ignore\nconst $varName:$typeSig = {}")
                                 line("for (let i = buffer.getShort();i>0;i--)")
                                 withBlock {
                                     line("const key = buffer.getShort() as ${getTypeSig(prop.enumKey)}")
@@ -439,7 +463,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
 
                             is MapEnumKeyObjectValuePropMetaData -> {
                                 line("// MapEnumKeyPrimitiveValuePropMetaData")
-                                line("const $varName:$typeSig = {}")
+                                line("// @ts-ignore\nconst $varName:$typeSig = {}")
                                 line("for (let i =buffer.getShort();i>0;i--)")
                                 withBlock {
                                     line("const key = buffer.getShort() as ${getTypeSig(prop.enumKey)}")
@@ -450,7 +474,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
 
                             is MapEnumKeyPrimitiveValuePropMetaData -> {
                                 line("// MapEnumKeyPrimitiveValuePropMetaData")
-                                line("const $varName:$typeSig = {}")
+                                line("// @ts-ignore\nconst $varName:$typeSig = {}")
                                 line("for (let i = buffer.getShort();i>0;i--)")
                                 withBlock {
                                     line("const key = buffer.getShort() as ${getTypeSig(prop.enumKey)}")
@@ -461,7 +485,7 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
 
                             is MapPrimitiveKeyEnumValue -> {
                                 line("// MapPrimitiveKeyEnumValue")
-                                line("const $varName:$typeSig = {}")
+                                line("// @ts-ignore\nconst $varName:$typeSig = {}")
                                 line("for (let i = buffer.getShort();i>0;i--)")
                                 withBlock {
                                     bufferReadPrimitive(prop.keyType, "key")
@@ -630,7 +654,13 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
         is PrimitivePropMetaData -> getTypeSig(prop.type, fullName)
         is EnumPropMetaData -> getTypeSig(prop.enumClass, fullName)
         is ListEnumPropMetaData -> "Array<${getTypeSig(prop.enumClass, fullName)}>"
-        is MapEnumKeyEnumValue -> "Record<${getTypeSig(prop.enumKey, fullName)}, ${getTypeSig(prop.enumValue, fullName)}>"
+        is MapEnumKeyEnumValue -> "Record<${getTypeSig(prop.enumKey, fullName)}, ${
+            getTypeSig(
+                prop.enumValue,
+                fullName
+            )
+        }>"
+
         is MapEnumKeyObjectValuePropMetaData -> "Record<${getTypeSig(prop.enumKey, fullName)}, ${
             getTypeSig(
                 prop.valueType,
@@ -694,6 +724,24 @@ class TsGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
                 line("const $varNameSize = buffer.getShort()")
                 line("const $varName = buffer.getBytes($varNameSize)")
             }
+        }
+    }
+
+    private fun TsWriter.bufferReadPrimitive(
+        varType: PrimitiveType
+    ): String {
+        return when (varType) {
+            PrimitiveType.INT -> "buffer.getInt()"
+            PrimitiveType.SHORT -> "buffer.getShort()"
+            PrimitiveType.DOUBLE -> "buffer.getDouble()"
+            PrimitiveType.BYTE -> "buffer.getByte()"
+            PrimitiveType.BOOL -> "buffer.getByte() != 0"
+            PrimitiveType.FLOAT -> "buffer.getFloat()"
+            PrimitiveType.LONG -> "buffer.getLong()"
+            PrimitiveType.STRING -> "buffer.getString()"
+
+            PrimitiveType.BYTE_ARRAY -> "buffer.getBytes(buffer.getShort())"
+
         }
     }
 
