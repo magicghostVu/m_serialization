@@ -240,7 +240,6 @@ object KSClassDecUtils {
             propDec.simpleName.asString(),
             propDec,
             objectType.declaration as KSClassDeclaration,
-            objectType.isMarkedNullable
         )
     }
 
