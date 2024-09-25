@@ -8,11 +8,11 @@ import m_serialization.annotations.GenCodeConf
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
 import m_serialization.data.class_metadata.*
-import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
 import m_serialization.data.gen_protocol_version.KotlinGenProtocolVersion
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
+import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitiveOrSerializable
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.toPrimitiveType
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
@@ -117,32 +117,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .toSet()
 
 
-        /*val simpleNameToFullName = mutableMapOf<String, MutableList<String>>()
-        setAllClass.forEach {
-            val simpleName = it.simpleName.asString()
-            val fullName = it.qualifiedName!!.asString()
-            val l = simpleNameToFullName.computeIfAbsent(simpleName) { mutableListOf() }
-            if (l.isNotEmpty()) {
-                val fullNameAddedBefore = l[0]
-                throwErr(
-                    "class $fullName and class $fullNameAddedBefore had same simple name," +
-                            " this will cause err with js gen code, change it first"
-                )
-            }
-            l.add(fullName)
-        }*/
-
-
-        //val allEnumClass = mutableListOf<KSClassDeclaration>()
 
         setAllClass
             .asSequence()
-            /*.map { c ->
-                if (c.classKind == ClassKind.ENUM_CLASS) {
-                    throwErr("temporary not support enum class ${c.qualifiedName?.asString()}")
-                }
-                c
-            }*/
             .map {
 
                 val numTypeParam = it.typeParameters.size
@@ -517,6 +494,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
     }
 
+
+    // verify các prop là abstract
+    // hoặc waring/chỉ cho phép các prop là abstract
     private fun verifySealedClass(classDec: KSClassDeclaration) {
 
         // nếu không chứa sealed thì
@@ -526,7 +506,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
         val className = classDec.qualifiedName?.asString()
         if (!classDec.modifiers.contains(Modifier.SEALED)) {
-
             if (classDec.classKind == ClassKind.INTERFACE) {
                 throwErr("class $className is open interface, can not serialize")
             } else {
@@ -535,7 +514,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     throwErr("class $className is open, can not serialize")
                 }
             }
-
         } else {
 
             if (classDec.classKind == ClassKind.INTERFACE) {
@@ -593,21 +571,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     logger.warn("class name of prop is ${classDecOfProp.qualifiedName!!.asString()}")
                     throw IllegalArgumentException("prop $propName at class $containerClassName not serializable")
                 }
-
-
-                // check tham số kiểu của khai báo
-                //classDecOfProp.as
-
-
-                fun KSType.isPrimitiveOrSerializable(): Boolean {
-                    return if (isPrimitive()) {
-                        true
-                    } else {
-                        val classDec = declaration as KSClassDeclaration
-                        classDec.getAllAnnotationName().contains(MSerialization::class.java.name)
-                    }
-                }
-
                 val allElementValid: Boolean = when (typeGenericTypeSupport) {
                     GenericTypeSupport.LIST -> {
                         val classOfElement = type.arguments[0].type!!.resolve()
@@ -620,17 +583,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     GenericTypeSupport.MAP -> {
                         val keyClass = type.arguments[0].type!!.resolve()
                         val valueClass = type.arguments[1].type!!.resolve()
-
-
                         if (keyClass.isMarkedNullable) {
                             throwErr("map prop $propName at $containerClassName had key nullable")
                         }
-
                         if (valueClass.isMarkedNullable) {
                             throwErr("map prop $propName at $containerClassName had value nullable")
                         }
-
-
                         if (keyClass.isPrimitive()) {
                             if (keyClass.toPrimitiveType() == PrimitiveType.BYTE_ARRAY) {
                                 throwErr("key element at prop $propName at $containerClassName can not be byte array")
@@ -644,11 +602,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                                 if (!allAnnoName.contains(MSerialization::class.java.name)) {
                                     throwErr("key element at prop $propName at $containerClassName can not serializable")
                                 }
-
                             }
                         }
                         valueClass.isPrimitiveOrSerializable()
-
                     }
                 }
                 if (!allElementValid) {
@@ -686,14 +642,15 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     }
 
     // tất cả các prop(không có type param) phải là primitive hoặc là serializable hoặc là có MTransient
-
     private fun verifyAllPropNotGenericsSerializable(clazz: KSClassDeclaration) {
         val allProps = clazz.getAllProperties()
-
-
         allProps
             .filter {
-                it.hasBackingField
+                if (clazz.modifiers.contains(Modifier.SEALED)) {
+                    true
+                } else {
+                    it.hasBackingField
+                }
             }
             .map {
                 val type = it.type.resolve()

@@ -1,6 +1,9 @@
 package m_serialization.data.prop_meta_data
 
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import m_serialization.annotations.MSerialization
+import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
 
 
 enum class PrimitiveType(val className: String) {
@@ -339,6 +342,15 @@ enum class PrimitiveType(val className: String) {
 
         fun KSType.isPrimitive(): Boolean {
             return allPrimitiveNameToPrimitiveType.containsKey(declaration.qualifiedName!!.asString())
+        }
+
+        fun KSType.isPrimitiveOrSerializable(): Boolean {
+            return if (isPrimitive()) {
+                true
+            } else {
+                val classDec = declaration as KSClassDeclaration
+                classDec.getAllAnnotationName().contains(MSerialization::class.java.name)
+            }
         }
 
         fun KSType.isPrimitiveNotByteArray(): Boolean {
