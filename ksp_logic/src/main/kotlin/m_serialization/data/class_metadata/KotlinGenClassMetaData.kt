@@ -243,6 +243,7 @@ class KotlinGenClassMetaData() : ClassMetaData() {
 
         val objectToWriteVarName = "objectToWrite"
 
+        // final class
         return if (!classDec.modifiers.contains(Modifier.SEALED)) {
             val funcWriteToInternal = FunSpec.builder(classDec.getFunctionNameWriteInternal())
                 .addParameter(
@@ -302,7 +303,7 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                 allImports
             )
 
-        } else {
+        } else { // sealed class
 
             val funWriteInternal = FunSpec.builder(classDec.getFunctionNameWriteInternal())
                 .addParameter(
@@ -319,7 +320,6 @@ class KotlinGenClassMetaData() : ClassMetaData() {
             val allImports = mutableSetOf<String>()
 
             //write tag
-
 
             val whenExpression = StringBuilder()
             whenExpression.append("when($objectToWriteVarName){\n")
@@ -343,15 +343,13 @@ class KotlinGenClassMetaData() : ClassMetaData() {
 
             val funcWriteTo = FunSpec.builder(KSClassDecUtils.writeTo)
                 .receiver(typeName)
-                .addParameter(
+                /*.addParameter(
                     ParameterSpec.builder(objectToWriteVarName, typeName).build()
-                )
+                )*/
                 .addParameter(
                     ParameterSpec.builder("buffer", byteBufTypeName).build()
                 )
-                .addStatement("${classDec.getFunctionNameWriteInternal()}($objectToWriteVarName, buffer)")
-
-
+                .addStatement("${classDec.getFunctionNameWriteInternal()}(this, buffer)")
             Pair(listOf(funWriteInternal.build(), funcWriteTo.build()), allImports)
         }
     }
@@ -368,13 +366,13 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                 val funCalculateSerializeSpec = FunSpec
                     .builder(AbstractPropMetadata.serializeSizeFuncName)
                     .receiver(typeName)
-                    .addParameter(
+                    /*.addParameter(
                         ParameterSpec
                             .builder(
                                 paramNames,
                                 typeName
                             ).build()
-                    )
+                    )*/
                     .returns(Int::class)
 
 
@@ -384,15 +382,26 @@ class KotlinGenClassMetaData() : ClassMetaData() {
 
                 val expressionBuilder = StringBuilder()
 
+                expressionBuilder.append(
+                    "val that = this\n"
+                )
+
                 val childSizeVarName = "childSize"
 
                 expressionBuilder.append(
-                    "val $childSizeVarName:Int = when($paramNames){\n"
+                    "val $childSizeVarName:Int = when(that){\n"
                 )
 
                 classDec.getAllActualChild().forEach {
                     expressionBuilder.append(
-                        "is ${it.simpleName.asString()} -> $paramNames.${AbstractPropMetadata.serializeSizeFuncName}()\n"
+                        //"is ${it.simpleName.asString()} -> $paramNames.${AbstractPropMetadata.serializeSizeFuncName}()\n"
+                        """
+                            is ${it.simpleName.asString()} -> {
+                                with(${it.getSerializerObjectName()}){
+                                    that.${AbstractPropMetadata.serializeSizeFuncName}()
+                                }
+                            }
+                        """.trimIndent()
                     )
                     allImport.addAll(
                         it.importSerializer().map { import ->
@@ -401,9 +410,7 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                     )
                 }
 
-                expressionBuilder.append("}")
-
-
+                expressionBuilder.append("\n}")
 
                 funCalculateSerializeSpec.addStatement(expressionBuilder.toString())
 

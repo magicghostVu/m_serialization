@@ -296,7 +296,7 @@ class ListObjectPropMetaData(
 
     override fun expressionForCalSize(varNameToAssign: String): String {
         return """
-            var $varNameToAssign=2;// lisy size
+            var $varNameToAssign=2;// list size
             for(e in $name){
                 // add size từng phần tử
                 // check xem kiểu khai báo có là sealed hay không
