@@ -7,7 +7,6 @@ plugins {
 
 repositories {
     mavenCentral()
-
     // github package
     maven {
         url = uri("https://maven.pkg.github.com/magicghostVu/m_serialization")
@@ -16,7 +15,6 @@ repositories {
             password = property("github.pull.package") as String
         }
     }
-
 
 }
 
@@ -36,7 +34,6 @@ dependencies {
     //implementation(project(":m_serialization_annotation"))
 
     implementation("com.magicghostvu","m-serialization-runtime", "0.1.1")
-
 }
 
 
@@ -50,22 +47,6 @@ java {
 }
 
 publishing {
-    /*repositories {
-        maven {
-            credentials(HttpHeaderCredentials::class) {
-                name = "Private-Token"
-                value = project.properties.getValue("deploy.token") as String
-            }
-
-            // project id 74
-            url = uri("")
-            authentication {
-                create<HttpHeaderAuthentication>("header")
-            }
-        }
-    }*/
-
-
     repositories {
         maven {
             name = "GitHubPackages"
@@ -81,7 +62,7 @@ publishing {
         create<MavenPublication>("maven") {
             groupId = "com.magicghostvu"
             artifactId = "m-serialization-codegen"
-            version = "0.1.2"
+            version = "0.1.4"
             from(components["kotlin"])
             artifact(tasks["sourcesJar"])
         }
