@@ -473,17 +473,19 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                                             "$sizeVarNameForThisProp += ${prop.name}.size * 2// key size"
                                         )
                                         val tempVarNameForIter = "v"
-                                        val expressionCalSizeOfObject =
+                                        /*val expressionCalSizeOfObject =
                                             if (prop.valueType.modifiers.contains(Modifier.SEALED)) {
                                                 "$tempVarNameForIter.${AbstractPropMetadata.serializeSizeFuncName}($tempVarNameForIter)"
                                             } else {
                                                 "$tempVarNameForIter.${AbstractPropMetadata.serializeSizeFuncName}()"
-                                            }
+                                            }*/
 
                                         funCalculateSerializeSpec.addStatement(
                                             """
                                         for($tempVarNameForIter in ${prop.name}.values){ //value size 
-                                            $sizeVarNameForThisProp += $expressionCalSizeOfObject
+                                            $sizeVarNameForThisProp += with(${prop.valueType.getSerializerObjectName()}){
+                                                ${tempVarNameForIter}.${AbstractPropMetadata.serializeSizeFuncName}()
+                                            }
                                         }
                                     """.trimIndent()
                                         )
@@ -601,7 +603,7 @@ class KotlinGenClassMetaData() : ClassMetaData() {
 
                                     is MapPrimitiveKeyObjectValueMetaData -> {
                                         funCalculateSerializeSpec.addStatement(
-                                            "var $sizeVarNameForThisProp = 2// map size"
+                                            "var $sizeVarNameForThisProp = 2// map size
                                         )
                                         when (val keyType = prop.keyType) {
                                             PrimitiveType.INT,
@@ -642,17 +644,13 @@ class KotlinGenClassMetaData() : ClassMetaData() {
                                             }
                                         }
                                         val varNameForValueIter = "v"
-                                        val expressionCalSizeOfObject =
-                                            if (prop.valueClassDec.modifiers.contains(Modifier.SEALED)) {
-                                                "$varNameForValueIter.${AbstractPropMetadata.serializeSizeFuncName}($varNameForValueIter)"
-                                            } else {
-                                                "$varNameForValueIter.${AbstractPropMetadata.serializeSizeFuncName}()"
-                                            }
 
                                         funCalculateSerializeSpec.addStatement(
                                             """
                                         for($varNameForValueIter in ${prop.name}.values){ //value size 
-                                            $sizeVarNameForThisProp += $expressionCalSizeOfObject
+                                            $sizeVarNameForThisProp += with(${prop.valueClassDec.getSerializerObjectName()}){
+                                                ${varNameForValueIter}.${AbstractPropMetadata.serializeSizeFuncName}()
+                                            }
                                         }
                                     """.trimIndent()
                                         )

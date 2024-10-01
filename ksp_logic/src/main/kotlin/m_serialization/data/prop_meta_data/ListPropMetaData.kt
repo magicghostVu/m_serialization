@@ -298,9 +298,9 @@ class ListObjectPropMetaData(
         return """
             var $varNameToAssign=2;// list size
             for(e in $name){
-                // add size từng phần tử
-                // check xem kiểu khai báo có là sealed hay không
-                $varNameToAssign += 10
+                $varNameToAssign += with(${elementClass.getSerializerObjectName()}){
+                    e.$serializeSizeFuncName();
+                }
             }
         """.trimIndent()
     }

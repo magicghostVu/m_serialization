@@ -2,7 +2,6 @@ package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
-import com.google.devtools.ksp.symbol.Modifier
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
@@ -51,11 +50,16 @@ class ObjectPropMetaData(
     }
 
     override fun expressionForCalSize(varNameToAssign: String): String {
-        return if (classDec.modifiers.contains(Modifier.SEALED)) {
+        /*return if (classDec.modifiers.contains(Modifier.SEALED)) {
             "var $varNameToAssign = $name.serializeSize($name)"
         } else {
             "var $varNameToAssign = $name.serializeSize()"
-        }
+        }*/
+        return """
+            var $varNameToAssign = with(${classDec.getSerializerObjectName()}){
+                ${name}.$serializeSizeFuncName()
+            }
+        """.trimIndent()
     }
 
 }
