@@ -603,7 +603,7 @@ class KotlinGenClassMetaData() : ClassMetaData() {
 
                                     is MapPrimitiveKeyObjectValueMetaData -> {
                                         funCalculateSerializeSpec.addStatement(
-                                            "var $sizeVarNameForThisProp = 2// map size
+                                            "var $sizeVarNameForThisProp = 2// map size"
                                         )
                                         when (val keyType = prop.keyType) {
                                             PrimitiveType.INT,

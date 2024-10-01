@@ -50,11 +50,6 @@ class ObjectPropMetaData(
     }
 
     override fun expressionForCalSize(varNameToAssign: String): String {
-        /*return if (classDec.modifiers.contains(Modifier.SEALED)) {
-            "var $varNameToAssign = $name.serializeSize($name)"
-        } else {
-            "var $varNameToAssign = $name.serializeSize()"
-        }*/
         return """
             var $varNameToAssign = with(${classDec.getSerializerObjectName()}){
                 ${name}.$serializeSizeFuncName()
