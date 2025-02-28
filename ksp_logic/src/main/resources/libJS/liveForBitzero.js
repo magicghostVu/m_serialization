@@ -54,11 +54,6 @@ var JReaderBuffer = engine.InPacket.extend({
 
 var JWriterBuffer = engine.OutPacket.extend({
 
-    ctor: function (pkg) {
-        this._super();
-        this.init(pkg);
-    },
-
     writeBool: function (b) {
         return this.putByte(b?1:0);
     },
