@@ -6,6 +6,7 @@ import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.Modifier
+import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
 import m_serialization.data.prop_meta_data.*
 import m_serialization.data.prop_meta_data.PrimitiveType.*
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
@@ -33,7 +34,18 @@ class GdStream(private val stream: OutputStream, private val indent: Int = 0) {
     }
 }
 
-class GdGenClassMetaData : ClassMetaData() {
+class GdGenClassMetaData(val rootFolderGen: String) : ClassMetaData() {
+
+    override fun languageGen(): LanguageGen {
+        return LanguageGen.GDSCRIPT
+    }
+
+    val root = if (rootFolderGen == "") {
+        "m"
+    } else {
+        rootFolderGen
+    }
+
     private fun isClassAbstract(classDec: KSClassDeclaration): Boolean {
         return classDec.modifiers.contains(Modifier.SEALED)
     }
@@ -51,6 +63,7 @@ class GdGenClassMetaData : ClassMetaData() {
         val isAbstract = isClassAbstract(classDec)
         val props = constructorProps + otherProps
         val classSig = getTypeSig(classDec)
+        val parent = this.parent
         GdStream(
             codeGenerator.createNewFile(
                 Dependencies(false),
@@ -77,7 +90,7 @@ class GdGenClassMetaData : ClassMetaData() {
             }.toSet().forEach { classDec ->
                 val importName = getTypeSig(classDec)
                 line(
-                    "const ${importName} = preload('res://m/${
+                    "const ${importName} = preload('res://${root}/${
                         classDec.packageName.asString().replace(".", "/")
                     }/${importName}.gd').$importName"
                 )
@@ -86,24 +99,17 @@ class GdGenClassMetaData : ClassMetaData() {
                 classDec.getAllActualChild().forEach { kclass ->
                     val importName = getTypeSig(kclass)
                     line(
-                        "const ${importName} = preload('res://m/${
+                        "const ${importName} = preload('res://${root}/${
                             kclass.packageName.asString().replace(".", "/")
                         }/${importName}.gd').$importName"
                     )
                 }
             }
-            val parent = run {
-                val parent =
-                    classDec.superTypes.find { (it.resolve().declaration as KSClassDeclaration).classKind == ClassKind.CLASS }
-                if (parent != null && globalUniqueTag.contains(parent.resolve().declaration)) {
-                    parent
-                } else null
-            }
             if (parent != null) {
-                val parentDec = parent.resolve().declaration as KSClassDeclaration
+                val parentDec = parent.classDec
                 val importName = getTypeSig(parentDec)
                 line(
-                    "const ${importName} = preload('res://m/${
+                    "const ${importName} = preload('res://${root}/${
                         parentDec.packageName.asString().replace(".", "/")
                     }/${importName}.gd').$importName"
                 )
@@ -112,12 +118,16 @@ class GdGenClassMetaData : ClassMetaData() {
             line("class $classSig:")
             withTab {
                 if (parent != null) {
-                    val parentDec = parent.resolve().declaration as KSClassDeclaration
+                    val parentDec = parent.classDec
                     line("extends ${getTypeSig(parentDec)}")
                 } else {
-                    line("extends 'res://m/IPacket.gd'")
+                    line("extends 'res://${root}/IPacket.gd'")
                 }
                 val tag = protocolUniqueId
+                // const tag
+                if (tag >= 0) {
+                    line("const TAG = $tag")
+                }
                 // declaration
                 props.mapNotNull { if (it.propDec.findOverridee() == null) it else null }.forEach { prop ->
                     line("var ${prop.name}: ${getTypeSig(prop)}")
@@ -134,8 +144,8 @@ class GdGenClassMetaData : ClassMetaData() {
                     }
                 }
                 // tag
-                line("")
-                run {
+                if (tag >= 0) {
+                    line("")
                     line("func get_tag() -> int:")
                     withTab {
                         line("return $tag")
@@ -192,7 +202,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                     line("for key in $varName:")
                                     withTab {
                                         bufferWritePrimitive(prop.keyType, "key")
-                                        bufferWritePrimitive(prop.keyType, "$varName[key]")
+                                        bufferWritePrimitive(prop.valueType, "$varName[key]")
                                     }
                                 }
 
@@ -311,7 +321,7 @@ class GdGenClassMetaData : ClassMetaData() {
                                 line("for i in buffer.get_u16():")
                                 withTab {
                                     bufferReadPrimitive(prop.keyType, "key")
-                                    bufferReadPrimitive(prop.keyType, "val")
+                                    bufferReadPrimitive(prop.valueType, "val")
                                     line("$varName[key] = val")
                                 }
                             }
@@ -388,20 +398,31 @@ class GdGenClassMetaData : ClassMetaData() {
                     line("return ret")
                 }
                 else withTab {
-                    line("match buffer.readShort():")
+                    line("var tag = buffer.get_16()")
+                    line("match tag:")
                     forWithTab(classDec.getAllActualChild()) { kclass ->
-                        val tag = globalUniqueTag.getValue(kclass)
-                        line("$tag:")
+                        val tag = globalUniqueTag.getOrDefault(kclass, -1)
                         val typeSig = getTypeSig(kclass)
+                        line("$typeSig.TAG: # $tag")
                         withTab {
                             line("return $typeSig.read_${typeSig}_from(buffer)")
                         }
                     }
+                    line("print('matching $classSig, tag not recognized:', tag)")
                     line("breakpoint")
                     line("return null")
                 }
+
                 // utils
                 run {
+                    line("")
+                    line("static func read_${classSig}_from_bytes(bytes: PackedByteArray, big_endian := true) -> $classSig:")
+                    withTab {
+                        line("var buffer := StreamPeerBuffer.new()")
+                        line("buffer.data_array = bytes")
+                        line("buffer.big_endian = big_endian")
+                        line("return read_${classSig}_from(buffer)")
+                    }
                     line("")
                     line("func _to_string_with_tab(tab: int) -> String:")
                     val params = props.map { prop ->
@@ -499,8 +520,8 @@ class GdGenClassMetaData : ClassMetaData() {
             DOUBLE -> line("var $varName := buffer.get_double()")
             BYTE -> line("var $varName := buffer.get_8()")
             BOOL -> line("var $varName := buffer.get_8() != 0")
-            FLOAT -> line("var $varName := buffer.read_float()")
-            LONG -> line("var $varName := buffer.read_64()")
+            FLOAT -> line("var $varName := buffer.get_float()")
+            LONG -> line("var $varName := buffer.get_64()")
             STRING -> {
                 val varNameLength = name_join(varName, "length")
                 line("var $varNameLength := buffer.get_u16()")
@@ -561,5 +582,42 @@ class GdGenClassMetaData : ClassMetaData() {
     private fun String.snakeToUpperCamelCase(): String {
         return this.snakeToLowerCamelCase()
             .replaceFirstChar { if (it.isLowerCase()) it.titlecase(Locale.getDefault()) else it.toString() }
+    }
+
+}
+
+object GdGenFileProtocolVersion : IGenFileProtocolVersion {
+
+    const val template = """## Just a trait
+##
+## Since gdscript does not have trait, we use inheritance instead. All m classes derive from this class.
+
+const PROTOCOL_VERSION = {PROTOCOL_VERSION}
+
+func get_tag() -> int:
+	return 0
+
+## Write this packet to a stream
+func write_to(buffer: StreamPeer, with_tag: bool) -> void:
+	pass
+
+## Pack this packet to a byte array
+func to_byte_array(with_tag: bool, big_endian := true) -> PackedByteArray:
+	var buffer := StreamPeerBuffer.new()
+	buffer.big_endian = big_endian
+	write_to(buffer, with_tag)
+	return buffer.data_array
+"""
+
+    override fun genFileProtocolVersion(codeGenerator: CodeGenerator, protocolVersion: Int) {
+        run {
+            val stream = codeGenerator.createNewFile(
+                Dependencies(false),
+                "",
+                "IPacket",
+                "gd"
+            )
+            stream.write(template.replace("{PROTOCOL_VERSION}", protocolVersion.toString()).toByteArray())
+        }
     }
 }

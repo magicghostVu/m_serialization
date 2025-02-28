@@ -1,6 +1,9 @@
 package m_serialization.data.prop_meta_data
 
+import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import m_serialization.annotations.MSerialization
+import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
 
 
 enum class PrimitiveType(val className: String) {
@@ -26,6 +29,18 @@ enum class PrimitiveType(val className: String) {
                 "$varNameToAssign = ${bufferVarName}.readInt()"
             }
         }
+
+        override fun expressionAndImportForCalSerializeSize(
+            varName: String,
+            propName: String
+        ): Pair<String, Set<String>> {
+            return Pair(
+                "var $varName = 4//int",
+                emptySet()
+            )
+        }
+
+        override fun serializeSize() = 4
     },
 
     SHORT(Short::class.qualifiedName!!) {
@@ -48,6 +63,19 @@ enum class PrimitiveType(val className: String) {
                 "$varNameToAssign = ${bufferVarName}.readShort()"
             }
         }
+
+
+        override fun expressionAndImportForCalSerializeSize(
+            varName: String,
+            propName: String
+        ): Pair<String, Set<String>> {
+            return Pair(
+                "var $varName = 2//short",
+                emptySet()
+            )
+        }
+
+        override fun serializeSize() = 2
     },
     DOUBLE(Double::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -69,6 +97,18 @@ enum class PrimitiveType(val className: String) {
                 "$varNameToAssign = ${bufferVarName}.readDouble()"
             }
         }
+
+        override fun expressionAndImportForCalSerializeSize(
+            varName: String,
+            propName: String
+        ): Pair<String, Set<String>> {
+            return Pair(
+                "var $varName = 8//double",
+                emptySet()
+            )
+        }
+
+        override fun serializeSize() = 8
     },
     BYTE(Byte::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -90,6 +130,18 @@ enum class PrimitiveType(val className: String) {
                 "$varNameToAssign = ${bufferVarName}.readByte()"
             }
         }
+
+        override fun expressionAndImportForCalSerializeSize(
+            varName: String,
+            propName: String
+        ): Pair<String, Set<String>> {
+            return Pair(
+                "var $varName = 1//byte",
+                emptySet()
+            )
+        }
+
+        override fun serializeSize() = 1
     },
     BOOL(Boolean::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -108,6 +160,18 @@ enum class PrimitiveType(val className: String) {
             return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readBool()"
             else "$varNameToAssign = ${bufferVarName}.readBool()"
         }
+
+        override fun expressionAndImportForCalSerializeSize(
+            varName: String,
+            propName: String
+        ): Pair<String, Set<String>> {
+            return Pair(
+                "var $varName = 1// bool",
+                emptySet()
+            )
+        }
+
+        override fun serializeSize() = 1
     },
     FLOAT(Float::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -126,6 +190,19 @@ enum class PrimitiveType(val className: String) {
             return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readFloat()"
             else "$varNameToAssign = ${bufferVarName}.readFloat()"
         }
+
+
+        override fun expressionAndImportForCalSerializeSize(
+            varName: String,
+            propName: String
+        ): Pair<String, Set<String>> {
+            return Pair(
+                "var $varName = 4//float",
+                emptySet()
+            )
+        }
+
+        override fun serializeSize() = 4
     },
     LONG(Long::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -144,6 +221,18 @@ enum class PrimitiveType(val className: String) {
             return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readLong()"
             else "$varNameToAssign = ${bufferVarName}.readLong()"
         }
+
+        override fun expressionAndImportForCalSerializeSize(
+            varName: String,
+            propName: String
+        ): Pair<String, Set<String>> {
+            return Pair(
+                "var $varName = 8//long",
+                emptySet()
+            )
+        }
+
+        override fun serializeSize() = 8
     },
     STRING(String::class.qualifiedName!!) {
         override fun writeToBufferExpression(bufferVarName: String, varName: String): String {
@@ -161,6 +250,20 @@ enum class PrimitiveType(val className: String) {
         ): String {
             return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readString()"
             else "$varNameToAssign = ${bufferVarName}.readString()"
+        }
+
+        override fun expressionAndImportForCalSerializeSize(
+            varName: String,
+            propName: String
+        ): Pair<String, Set<String>> {
+            return Pair(
+                "var $varName = $propName.strSerializeSize()",
+                setOf("m_serialization.utils.ByteBufUtils.strSerializeSize")
+            )
+        }
+
+        override fun serializeSize(): Int {
+            throw IllegalArgumentException("wrong call, review code")
         }
     },
 
@@ -182,6 +285,20 @@ enum class PrimitiveType(val className: String) {
             return if (declareNewVar) "val $varNameToAssign = ${bufferVarName}.readByteArray()"
             else "$varNameToAssign = ${bufferVarName}.readByteArray()"
         }
+
+        override fun expressionAndImportForCalSerializeSize(
+            varName: String,
+            propName: String
+        ): Pair<String, Set<String>> {
+            return Pair(
+                "var $varName = $propName.byteArraySerializeSize()",
+                setOf("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
+            )
+        }
+
+        override fun serializeSize(): Int {
+            throw IllegalArgumentException("wrong call, review code")
+        }
     };
 
     abstract fun writeToBufferExpression(bufferVarName: String, varName: String): String;
@@ -194,6 +311,11 @@ enum class PrimitiveType(val className: String) {
         varNameToAssign: String,
         declareNewVar: Boolean
     ): String
+
+
+    abstract fun expressionAndImportForCalSerializeSize(varName: String, propName: String): Pair<String, Set<String>>
+
+    abstract fun serializeSize(): Int
 
 
     companion object {
@@ -220,6 +342,15 @@ enum class PrimitiveType(val className: String) {
 
         fun KSType.isPrimitive(): Boolean {
             return allPrimitiveNameToPrimitiveType.containsKey(declaration.qualifiedName!!.asString())
+        }
+
+        fun KSType.isPrimitiveOrSerializable(): Boolean {
+            return if (isPrimitive()) {
+                true
+            } else {
+                val classDec = declaration as KSClassDeclaration
+                classDec.getAllAnnotationName().contains(MSerialization::class.java.name)
+            }
         }
 
         fun KSType.isPrimitiveNotByteArray(): Boolean {

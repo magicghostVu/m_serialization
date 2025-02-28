@@ -50,4 +50,13 @@ object ByteBufUtils {
         readBytes(res)
         return res;
     }
+
+    fun String.strSerializeSize(): Int {
+        val arr = this.toByteArray(StandardCharsets.UTF_8)
+        return 2 + arr.size
+    }
+
+    fun ByteArray.byteArraySerializeSize(): Int {
+        return 2 + this.size
+    }
 }

@@ -42,4 +42,19 @@ class ObjectPropMetaData(
         return classDec.importSerializer() +
                 classDec.qualifiedName!!.asString()
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        return classDec
+            .importSerializer()
+            .map { "$it.serializeSize" }
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        return """
+            var $varNameToAssign = with(${classDec.getSerializerObjectName()}){
+                ${name}.$serializeSizeFuncName()
+            }
+        """.trimIndent()
+    }
+
 }

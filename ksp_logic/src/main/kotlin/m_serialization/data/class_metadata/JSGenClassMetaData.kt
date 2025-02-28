@@ -2,17 +2,13 @@ package m_serialization.data.class_metadata
 
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
-import com.google.devtools.ksp.processing.KSPLogger
 import com.google.devtools.ksp.symbol.ClassKind
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.Modifier
 import com.squareup.kotlinpoet.ksp.toClassName
 import m_serialization.data.prop_meta_data.*
-import m_serialization.utils.GraphUtils
-import m_serialization.utils.KSClassDecUtils
 import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getAllEnumEntryWithIndex
-import m_serialization.utils.KSClassDecUtils.getSuperClass
 import m_serialization.utils.KSClassDecUtils.getSuperClassNameJS
 import java.io.BufferedWriter
 
@@ -30,11 +26,15 @@ class JSGenClassMetaData() : ClassMetaData() {
 
     }
 
+    override fun languageGen(): LanguageGen {
+        return LanguageGen.JAVASCRIPT
+    }
+
     override fun doGenCode(codeGenerator: CodeGenerator) {
         if (classDec.classKind == ClassKind.ENUM_CLASS)
             outputFile.addEnum(JSEnum(classDec))
         else
-            outputFile.addClass(JSClass(protocolUniqueId, classDec, constructorProps))
+            outputFile.addClass(JSClass(protocolUniqueId, classDec, constructorProps + otherProps))
         //logger.warn("$protocolUniqueId ${classDec.toClassName().toString()}")
     }
 
@@ -51,12 +51,12 @@ sealed class JSElement() {
             is ListEnumPropMetaData -> "${type.enumClass.toClassName()}[]"
             is ListObjectPropMetaData -> "${type.elementClass.toClassName()}[]"
             is ListPrimitivePropMetaData -> "${primitiveJsDocType(type.type)}[]"
-            is MapEnumKeyEnumValue -> "Map<${type.enumKey.toClassName()},${type.enumValue.toClassName()}>"
-            is MapEnumKeyObjectValuePropMetaData -> "Map<${type.enumKey.toClassName()},${type.valueType.toClassName()}>"
-            is MapEnumKeyPrimitiveValuePropMetaData -> "Map<${type.enumKey.toClassName()},${primitiveJsDocType(type.valueType)}>"
-            is MapPrimitiveKeyEnumValue -> "Map<${primitiveJsDocType(type.keyType)},${type.enumValue.toClassName()}>"
-            is MapPrimitiveKeyObjectValueMetaData -> "Map<${primitiveJsDocType(type.keyType)},${type.valueClassDec.toClassName()}>"
-            is MapPrimitiveKeyValueMetaData -> "Map<${primitiveJsDocType(type.keyType)},${primitiveJsDocType(type.valueType)}>"
+            is MapEnumKeyEnumValue -> "Object.<${type.enumKey.toClassName()},${type.enumValue.toClassName()}>"
+            is MapEnumKeyObjectValuePropMetaData -> "Object.<${type.enumKey.toClassName()},${type.valueType.toClassName()}>"
+            is MapEnumKeyPrimitiveValuePropMetaData -> "Object.<${type.enumKey.toClassName()},${primitiveJsDocType(type.valueType)}>"
+            is MapPrimitiveKeyEnumValue -> "Object.<${primitiveJsDocType(type.keyType)},${type.enumValue.toClassName()}>"
+            is MapPrimitiveKeyObjectValueMetaData -> "Object.<${primitiveJsDocType(type.keyType)},${type.valueClassDec.toClassName()}>"
+            is MapPrimitiveKeyValueMetaData -> "Object.<${primitiveJsDocType(type.keyType)},${primitiveJsDocType(type.valueType)}>"
         }
     }
 
@@ -68,6 +68,7 @@ sealed class JSElement() {
             PrimitiveType.FLOAT,
             PrimitiveType.LONG,
             PrimitiveType.INT -> "number"
+
             PrimitiveType.BOOL -> "boolean"
             PrimitiveType.STRING -> "string"
             PrimitiveType.BYTE_ARRAY -> "number[]"
@@ -81,6 +82,12 @@ class JSClass(
     val classDec: KSClassDeclaration,
     val constructorProps: List<AbstractPropMetadata>
 ) : JSElement() {
+
+    companion object {
+        var lastId = 0;
+        val MapClassToID: MutableMap<KSClassDeclaration, Int> = mutableMapOf();
+    }
+
     fun bufferVar(): String {
         return JSFile.bufferVar;
     }
@@ -103,34 +110,45 @@ class JSClass(
     }
 
     fun rawFunName(): String {
-        return "fun0x${classId.toString(16)}"//classDec.simpleName.asString();
+        return "fun0x${
+            MapClassToID.computeIfAbsent(classDec) {
+                lastId++
+            }.toString(16)
+        }"
     }
 
     private fun rawFunName(classDec: KSClassDeclaration, classToTag: Map<String, Short>): String {
-        return "fun0x${classToTag[classDec.toClassName().toString()]?.toString(16)}"//classDec.simpleName.asString()
+        return "fun0x${
+            MapClassToID.computeIfAbsent(classDec) {
+                lastId++
+            }.toString(16)
+        }"
     }
 
     private fun getExtractFunction(it: AbstractPropMetadata, classToTag: MutableMap<String, Short>): String {
         return when (it) {
             is PrimitivePropMetaData -> getExtractPrimitive(it.type)
             is ObjectPropMetaData -> "this.${rawFunName(it.classDec, classToTag)}0(${bufferVar()})"
-            is EnumPropMetaData -> "this.${bufferVar()}.readEnum()"
+            is EnumPropMetaData -> "${bufferVar()}.readEnum()"
 
             //list
             is ListObjectPropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return this.${rawFunName(it.elementClass, classToTag)}0(${bufferVar()})"
             }}.bind(this,${bufferVar()}))"
+
             is ListPrimitivePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return ${getExtractPrimitive(it.type)}"
             }}.bind(this,${bufferVar()}))"
+
             is ListEnumPropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return ${bufferVar()}.readEnum()"
             }}.bind(this,${bufferVar()}))"
 
             //map
             is MapPrimitiveKeyValueMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${getExtractPrimitive(it.keyType)},value:${getExtractPrimitive(it.valueType)}}"
+                "return {key:${getExtractPrimitive(it.keyType)},value: ${getExtractPrimitive(it.valueType)}}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
+
             is MapPrimitiveKeyObjectValueMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${getExtractPrimitive(it.keyType)},value: this.${
                     rawFunName(
@@ -139,6 +157,7 @@ class JSClass(
                     )
                 }0(${bufferVar()})}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
+
             is MapPrimitiveKeyEnumValue -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${getExtractPrimitive(it.keyType)},value: this.${bufferVar()}.readEnum()}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
@@ -146,16 +165,18 @@ class JSClass(
             is MapEnumKeyEnumValue -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${bufferVar()}.readEnum(),value: this.${bufferVar()}.readEnum()}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
+
             is MapEnumKeyObjectValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${bufferVar()}.readEnum(),value: value: this.${
+                "return {key:${bufferVar()}.readEnum(),value: this.${
                     rawFunName(
                         it.valueType,
                         classToTag
                     )
                 }0(${bufferVar()})}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
+
             is MapEnumKeyPrimitiveValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${bufferVar()}.readEnum(),value: value:${getExtractPrimitive(it.valueType)}}}"
+                "return {key:${bufferVar()}.readEnum(),value: ${getExtractPrimitive(it.valueType)}}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
         }
     }
@@ -198,6 +219,7 @@ class JSClass(
                     classToTag
                 )
             }2(${bufferVar()},${objVar()}.${it.name});"
+
             is EnumPropMetaData -> "${bufferVar()}.writeEnum(${objVar()}.${it.name});"
 
             //list
@@ -205,10 +227,12 @@ class JSClass(
                     "${objVar()}.${it.name}.forEach(function(${bufferVar()}, ${subObjVar()}){${
                         "this.${rawFunName(it.elementClass, classToTag)}2(${bufferVar()}, ${subObjVar()})"
                     }}.bind(this,${bufferVar()}));"
+
             is ListPrimitivePropMetaData -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
                     "${objVar()}.${it.name}.forEach(function(${bufferVar()}, ${subObjVar()}){${
                         getZipPrimitive(it.type, bufferVar(), subObjVar())
                     }}.bind(this,${bufferVar()}));"
+
             is ListEnumPropMetaData -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
                     "${objVar()}.${it.name}.forEach(function(${bufferVar()}, ${subObjVar()}){${
                         "${bufferVar()}.writeEnum(${subObjVar()})"
@@ -327,10 +351,10 @@ class JSClass(
         file.write("/** @typedef {${classDec.getSuperClassNameJS()}} ${classDec.toClassName()}\n")
         constructorProps.forEach { file.write("* @property {${jsDocType(it)}} ${it.name}\n") }
         file.write("*/\n")
-        file.write("/**@typedef {Object} ${classDec.toClassName()}${AbstractPropMetadata.serializerObjectNameSuffix}\n");
+        file.write("/**@typedef {JavaClass} ${classDec.toClassName()}${AbstractPropMetadata.serializerObjectNameSuffix}\n");
         file.write(" * @property {function(JReadBuffer):${classDec.toClassName()}} extract\n")
         file.write(" * @property {function(JWriteBuffer,${classDec.toClassName()}):void} zip\n")
-        file.write(" * @property {function(${constructorProps.joinToString { jsDocType(it) }}):${classDec.toClassName()}} create\n")
+        file.write(" * @property {function(${constructorProps.joinToString { "${it.name}:${jsDocType(it)}" }}):${classDec.toClassName()}} create\n")
         file.write("*/\n")
     }
 
@@ -343,6 +367,10 @@ class JSEnum(var classDec: KSClassDeclaration) : JSElement() {
 
     override fun jsDocTree(): String {
         return "/** @Enum {number} */"
+    }
+
+    fun writeEnumJSDoc(file: BufferedWriter) {
+        file.write("/** @Enum {number} ${classDec.toClassName()} */\n")
     }
 
 }
@@ -366,9 +394,12 @@ class JSFile(val fileName: String) {
     private var enums = mutableListOf<JSEnum>()
     private var classDecToUniqueTag: MutableMap<String, Short> = mutableMapOf()
     private var classTree = TreeNode()
+    private var version = 0
+    private var setVersion = false
     fun writeTo(file: BufferedWriter) {
         writeFileStart(file)
-
+        var maxTag = classDecToUniqueTag.maxBy { e -> e.value }.value + 1;
+        classDecToUniqueTag.replaceAll { _, value -> if (value < 0) (maxTag++).toShort() else value };
         classes.forEach {
             it.writeClassFunction(file, classDecToUniqueTag)
         }
@@ -386,6 +417,9 @@ class JSFile(val fileName: String) {
         classes.forEach {
             it.writeClassJSDOC(file)
         }
+        enums.forEach {
+            it.writeEnumJSDoc(file)
+        }
 
 
         file.write("var ${AbstractPropMetadata.serializerObjectNameSuffix}={")
@@ -399,7 +433,7 @@ class JSFile(val fileName: String) {
     }
 
     private fun writeFileEnd(file: BufferedWriter) {
-        file.write("arrayToMap:function(_m,_o){ _m[_o.key]=_o.value;return _m}")
+        file.write("arrayToMap:function(_m,_o){ _m[_o.key]=_o.value;return _m},version:${version}")
         file.write("};\n")
         file.write("${AbstractPropMetadata.serializerObjectNameSuffix}.instance=${createTree(classTree)}")
     }
@@ -407,7 +441,7 @@ class JSFile(val fileName: String) {
     private fun createTree(classTree: TreeNode): String {
         return if (classTree.type == null) "{${
             classTree.child.entries.joinToString {
-                "${if(it.value.type==null) "" else it.value.type!!.jsDocTree()}${it.key}: ${
+                "${if (it.value.type == null) "" else it.value.type!!.jsDocTree()}${it.key}: ${
                     createTree(
                         it.value
                     )
@@ -444,6 +478,13 @@ class JSFile(val fileName: String) {
         if (!node.child.containsKey(name))
             node.child[name] = TreeNode()
         node.child[name]?.type = element
+    }
+
+    fun setVersion(protocolVersion: Int) {
+        if (this.setVersion)
+            return
+        this.version = protocolVersion
+        this.setVersion = true
     }
 
 }

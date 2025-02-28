@@ -19,6 +19,12 @@ sealed class ClassMetaData(
 
     lateinit var logger: KSPLogger
 
+
+    abstract fun languageGen():LanguageGen
+
+    // cha trên trực tiếp của class này
+    var parent: ClassMetaData? = null
+
     // gen ra serializer và deserializer cho class này
     abstract fun doGenCode(codeGenerator: CodeGenerator): Unit
 

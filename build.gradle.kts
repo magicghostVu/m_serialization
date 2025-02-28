@@ -21,7 +21,7 @@ dependencies {
 
 
     // để có thể dùng các annotation trong project
-    implementation(project(":ksp_logic"))
+    //implementation(project(":ksp_logic"))
 
     // chạy code gen trong build time
     ksp(project(":ksp_logic"))
@@ -32,6 +32,18 @@ tasks.test {
     useJUnitPlatform()
 }
 
+java {
+    sourceCompatibility = JavaVersion.VERSION_1_8
+    targetCompatibility = JavaVersion.VERSION_1_8
+}
+
+tasks.register("cleanKsp") {
+    doLast {
+        delete("$buildDir/generated/ksp/main/kotlin")
+    }
+}
+
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "11"
+    dependsOn("cleanKsp")
+    kotlinOptions.jvmTarget = "1.8"
 }

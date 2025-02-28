@@ -15,7 +15,14 @@ sealed class AbstractPropMetadata() {
 
     abstract fun addImportForRead(): List<String>
 
-    abstract fun mtoString():String
+
+    abstract fun addImportForCalculateSize(): List<String>
+
+
+    abstract fun expressionForCalSize(varNameToAssign: String): String
+
+
+    abstract fun mtoString(): String
 
     companion object {
 
@@ -24,6 +31,8 @@ sealed class AbstractPropMetadata() {
         const val serializerObjectNameSuffix = "MSerializer";
 
         const val readFromFuncName = "readFrom"
+
+        const val serializeSizeFuncName = "serializeSize"
 
 
     }

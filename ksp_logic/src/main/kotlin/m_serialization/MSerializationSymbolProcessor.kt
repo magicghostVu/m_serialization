@@ -4,20 +4,19 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
+import m_serialization.annotations.GenCodeConf
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
-import m_serialization.data.class_metadata.CommonPropForMetaCodeGen
-import m_serialization.data.class_metadata.JSGenClassMetaData
-import m_serialization.data.class_metadata.GdGenClassMetaData
-import m_serialization.data.class_metadata.KotlinGenClassMetaData
-import m_serialization.data.gen_protocol_version.IGenFileProtocolVersion
+import m_serialization.data.class_metadata.*
 import m_serialization.data.gen_protocol_version.KotlinGenProtocolVersion
 import m_serialization.data.prop_meta_data.AbstractPropMetadata
 import m_serialization.data.prop_meta_data.PrimitiveType
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitive
+import m_serialization.data.prop_meta_data.PrimitiveType.Companion.isPrimitiveOrSerializable
 import m_serialization.data.prop_meta_data.PrimitiveType.Companion.toPrimitiveType
 import m_serialization.utils.GraphUtils
 import m_serialization.utils.KSClassDecUtils
+import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getAllAnnotationName
 import m_serialization.utils.KSClassDecUtils.getAllChildRecursive
 import m_serialization.utils.KSClassDecUtils.getAllPropMetaData
@@ -32,8 +31,6 @@ import java.io.StringWriter
 import java.io.Writer
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-import java.util.*
-import kotlin.collections.LinkedHashMap
 
 
 enum class GenericTypeSupport {
@@ -50,11 +47,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     // tạm thời chưa hỗ trợ object làm key
     // tất cả các key phải là primitive
-    // xem có thể hỗ trợ trong tương lai
+    // xem xét có thể hỗ trợ trong tương lai
     private val fullNameToTypeGenericSupport: Map<String, GenericTypeSupport> = mapOf(
         "kotlin.collections.MutableList" to GenericTypeSupport.LIST,
         "java.util.LinkedList" to GenericTypeSupport.LIST,
         "kotlin.collections.List" to GenericTypeSupport.LIST,
+        "kotlin.collections.Collection" to GenericTypeSupport.LIST,
         "kotlin.collections.MutableMap" to GenericTypeSupport.MAP,
         "kotlin.collections.Map" to GenericTypeSupport.MAP,
         "java.util.TreeMap" to GenericTypeSupport.MAP
@@ -73,22 +71,39 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     override fun process(resolver: Resolver): List<KSAnnotated> {
 
-
-        /*val testClass = resolver.getSymbolsWithAnnotation(
-            TestEnum::class.qualifiedName.toString()
+        val genCodeSymbol = resolver.getSymbolsWithAnnotation(
+            GenCodeConf::class
+                .qualifiedName!!
         ).toList()
 
+        val genCodeConfig: GenCodeConf = if (genCodeSymbol.isEmpty()) {
+            GenCodeConf()
+        } else if (genCodeSymbol.size > 1) {
+            throw IllegalArgumentException("ambiguous config for gd gen code, had more than 1 codegen config")
+        } else {
+            val c = genCodeSymbol
+                .first()
+                .annotations
+                .filter {
+                    it.annotationType.resolve().declaration.qualifiedName!!.asString() == GenCodeConf::class.qualifiedName
+                }
+                .toList()
 
-        if (testClass.isNotEmpty()) {
-
-            testClass.forEach{
-                val cc = it as KSClassDeclaration
-                cc.getAllEnumEntrySimpleName();
+            if (c.size > 1) {
+                throw IllegalArgumentException("ambiguous config for gen code config, had more than 1 codegen config")
             }
-
-
-            return emptyList()
-        }*/
+            var sourceGenRootFolder = ""
+            var genMetadata: Boolean = true
+            c[0].arguments.forEach {
+                val name = it.name!!.asString()
+                when (name) {
+                    "sourceGenRootFolder" -> sourceGenRootFolder = it.value as String
+                    "genMetadata" -> genMetadata = it.value as Boolean
+                }
+            }
+            logger.warn("source gen root folder: $sourceGenRootFolder, genMetadata: $genMetadata")
+            GenCodeConf(sourceGenRootFolder, genMetadata)
+        }
 
 
         val allClassWillProcess = resolver.getSymbolsWithAnnotation(
@@ -102,16 +117,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .toSet()
 
 
-        //val allEnumClass = mutableListOf<KSClassDeclaration>()
 
         setAllClass
             .asSequence()
-            /*.map { c ->
-                if (c.classKind == ClassKind.ENUM_CLASS) {
-                    throwErr("temporary not support enum class ${c.qualifiedName?.asString()}")
-                }
-                c
-            }*/
             .map {
 
                 val numTypeParam = it.typeParameters.size
@@ -188,12 +196,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         val autoTag = MutableShort()
 
 
-        val classDecToUniqueTag = setAllClass
-            .asSequence()
-            .map {
-                val tag = autoTag.andIncrement
-                Pair(it, tag)
-            }.toMap()
+        val classDecToUniqueTag = generateTag(setAllClass)
 
 
         val classDecToHash = mutableMapOf<KSClassDeclaration, Int>()
@@ -230,17 +233,20 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 }
 
                 listPropNotInConstructor.forEach { propMeta ->
-                    if (!propMeta.propDec.isMutable) {
-                        throwErr(
-                            "prop ${propMeta.name} at ${classDec.qualifiedName!!.asString()} is not in constructor so can not be immutable"
-                        )
+                    if (!classDec.modifiers.contains(Modifier.SEALED)) {
+                        if (!propMeta.propDec.isMutable) {
+                            throwErr(
+                                "prop ${propMeta.name} at ${classDec.qualifiedName!!.asString()} is not in constructor so can not be immutable"
+                            )
+                        }
                     }
                 }
 
 
                 val kotlinCodeGen = KotlinGenClassMetaData()
                 val jsCodeGen = JSGenClassMetaData()
-                val gdCodeGen = GdGenClassMetaData()
+                val tsCodegen = TsGenClassMetaData(genCodeConfig.sourceGenRootFolder)
+                val gdCodeGen = GdGenClassMetaData(genCodeConfig.sourceGenRootFolder)
 
 
                 //val m = MyCodeGen(listPropInConstructor, listPropNotInConstructor, it.first)
@@ -252,11 +258,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     listPropInConstructor,
                     listPropNotInConstructor,
                     classDec,
-                    classDecToUniqueTag.getValue(classDec),
+                    classDecToUniqueTag.getOrDefault(classDec, -1),
                     classDecToUniqueTag
                 )
 
-                Pair(listOf(kotlinCodeGen, gdCodeGen, jsCodeGen), commonProp)
+                Pair(listOf(kotlinCodeGen, jsCodeGen, tsCodegen, gdCodeGen), commonProp)
 
 
             }
@@ -280,28 +286,77 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         // add other code gen protocol version here
 
 
+        // rebuild parent for all class in same family
+
+        val familyToAllCodeGen = mutableMapOf<LanguageGen, MutableMap<KSClassDeclaration, ClassMetaData>>()
+        allCodeGen.forEach {
+            val allClassForThisFamily = familyToAllCodeGen.computeIfAbsent(it.languageGen()) { mutableMapOf() }
+            allClassForThisFamily[it.classDec] = it
+        }
+
+        familyToAllCodeGen.forEach { (lanGen, classDecToMeta) ->
+            classDecToMeta.forEach { (classDec, meta) ->
+                val allDirectChildren = classDec.getSealedSubclasses()
+                allDirectChildren.forEach { childClassDec ->
+                    val metaOfChild = classDecToMeta.getValue(childClassDec)
+                    metaOfChild.parent = meta
+                    //logger.warn("child ${childClassDec.simpleName.asString()} had parent ${meta.classDec.simpleName.asString()} at $lanGen")
+                }
+            }
+        }
+
+
         val allHash = classDecToHash.values.toIntArray()
-        logger.warn("all hash is ${allHash.contentToString()}")
+        //logger.warn("all hash is ${allHash.contentToString()}")
         val protocolVersion = allHash.contentHashCode()
-
-        val allGenProtocolVersion = listOf<IGenFileProtocolVersion>(
-            KotlinGenProtocolVersion()
+        JSGenClassMetaData.outputFile.setVersion(protocolVersion);
+        val allGenProtocolVersion = listOf(
+            KotlinGenProtocolVersion(),
+            TsGenFileProtocolVersion(genCodeConfig.sourceGenRootFolder),
+            GdGenFileProtocolVersion,
         )
-
         allCodeGen.forEach {
             it.doGenCode(env.codeGenerator)
         }
 
         // gen code for protocol version based all hash
         if (!protocolVersionGenerated) {
-            // todo: gen file protocol version
-            allGenProtocolVersion.forEach {
-                it.genFileProtocolVersion(env.codeGenerator, protocolVersion)
+            if (genCodeConfig.genMetadata) {
+                // todo: gen file protocol version
+                allGenProtocolVersion.forEach {
+                    it.genFileProtocolVersion(env.codeGenerator, protocolVersion)
+                }
             }
             protocolVersionGenerated = true
         }
 
         return emptyList()
+    }
+
+    private fun generateTag(allClass: Set<KSClassDeclaration>): Map<KSClassDeclaration, Short> {
+        val result = mutableMapOf<KSClassDeclaration, Short>()
+        for (c in allClass) {
+            // lấy tất cả các con và gen tag
+            if (c.modifiers.contains(Modifier.SEALED)) {
+                val allChild = c.getAllActualChild()
+                var autoLocalTag: Short = 0
+                allChild.forEach {
+                    if (!result.containsKey(it)) {
+                        result[it] = autoLocalTag
+                        autoLocalTag++
+                    }
+                }
+            }
+        }
+
+        //các class còn lại sẽ có tag bằng -1
+        allClass.forEach {
+            result.computeIfAbsent(it) {
+                -1
+            }
+        }
+
+        return result
     }
 
     private fun exportDependenciesGraph(graph: DefaultDirectedGraph<String, DefaultEdge>) {
@@ -439,6 +494,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             }
     }
 
+
+    // verify các prop là abstract
+    // hoặc waring/chỉ cho phép các prop là abstract
     private fun verifySealedClass(classDec: KSClassDeclaration) {
 
         // nếu không chứa sealed thì
@@ -448,7 +506,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
         val className = classDec.qualifiedName?.asString()
         if (!classDec.modifiers.contains(Modifier.SEALED)) {
-
             if (classDec.classKind == ClassKind.INTERFACE) {
                 throwErr("class $className is open interface, can not serialize")
             } else {
@@ -457,7 +514,6 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     throwErr("class $className is open, can not serialize")
                 }
             }
-
         } else {
 
             if (classDec.classKind == ClassKind.INTERFACE) {
@@ -494,6 +550,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
             .filter { (_, type) ->
                 type.arguments.isNotEmpty()
             }
+            .filter { (prop, type) ->
+                prop.hasBackingField
+            }
             .forEach { (prop, type) ->
                 // check class của khai báo
 
@@ -507,22 +566,11 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                 }
 
                 val typeGenericTypeSupport = fullNameToTypeGenericSupport[classNameOfProp]
-                    ?: throw IllegalArgumentException("prop $propName at class $containerClassName not serializable")
 
-
-                // check tham số kiểu của khai báo
-                //classDecOfProp.as
-
-
-                fun KSType.isPrimitiveOrSerializable(): Boolean {
-                    return if (isPrimitive()) {
-                        true
-                    } else {
-                        val classDec = declaration as KSClassDeclaration
-                        classDec.getAllAnnotationName().contains(MSerialization::class.java.name)
-                    }
+                if (typeGenericTypeSupport == null) {
+                    logger.warn("class name of prop is ${classDecOfProp.qualifiedName!!.asString()}")
+                    throw IllegalArgumentException("prop $propName at class $containerClassName not serializable")
                 }
-
                 val allElementValid: Boolean = when (typeGenericTypeSupport) {
                     GenericTypeSupport.LIST -> {
                         val classOfElement = type.arguments[0].type!!.resolve()
@@ -535,17 +583,12 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     GenericTypeSupport.MAP -> {
                         val keyClass = type.arguments[0].type!!.resolve()
                         val valueClass = type.arguments[1].type!!.resolve()
-
-
                         if (keyClass.isMarkedNullable) {
                             throwErr("map prop $propName at $containerClassName had key nullable")
                         }
-
                         if (valueClass.isMarkedNullable) {
                             throwErr("map prop $propName at $containerClassName had value nullable")
                         }
-
-
                         if (keyClass.isPrimitive()) {
                             if (keyClass.toPrimitiveType() == PrimitiveType.BYTE_ARRAY) {
                                 throwErr("key element at prop $propName at $containerClassName can not be byte array")
@@ -559,11 +602,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                                 if (!allAnnoName.contains(MSerialization::class.java.name)) {
                                     throwErr("key element at prop $propName at $containerClassName can not serializable")
                                 }
-
                             }
                         }
                         valueClass.isPrimitiveOrSerializable()
-
                     }
                 }
                 if (!allElementValid) {
@@ -601,14 +642,15 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     }
 
     // tất cả các prop(không có type param) phải là primitive hoặc là serializable hoặc là có MTransient
-
     private fun verifyAllPropNotGenericsSerializable(clazz: KSClassDeclaration) {
         val allProps = clazz.getAllProperties()
-
-
         allProps
             .filter {
-                it.hasBackingField
+                if (clazz.modifiers.contains(Modifier.SEALED)) {
+                    true
+                } else {
+                    it.hasBackingField
+                }
             }
             .map {
                 val type = it.type.resolve()

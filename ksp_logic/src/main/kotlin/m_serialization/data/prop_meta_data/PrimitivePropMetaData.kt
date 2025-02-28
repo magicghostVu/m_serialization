@@ -28,4 +28,12 @@ class PrimitivePropMetaData(
     override fun mtoString(): String {
         return PrimitiveType.simpleName(type)
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        TODO("Not yet implemented")
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        TODO("Not yet implemented")
+    }
 }

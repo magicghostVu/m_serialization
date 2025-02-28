@@ -6,9 +6,9 @@ import com.google.devtools.ksp.symbol.KSType
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
-import java.lang.StringBuilder
 
 
+//maybe change name to collection
 sealed class ListPropMetaData(val listType: KSType) : AbstractPropMetadata() {
     fun listTypeAtSource(): ListTypeAtSource {
         return ListTypeAtSource.fromName(listType.declaration.qualifiedName!!.asString())
@@ -19,7 +19,8 @@ sealed class ListPropMetaData(val listType: KSType) : AbstractPropMetadata() {
 enum class ListTypeAtSource(val fullName: String) {
     List("kotlin.collections.List"),// immutable list
     MutableList("kotlin.collections.MutableList"),
-    MLinkedList("java.util.LinkedList");
+    MLinkedList("java.util.LinkedList"),
+    MCollection("kotlin.collections.Collection");
 
     companion object {
         private val map = ListTypeAtSource
@@ -34,8 +35,10 @@ enum class ListTypeAtSource(val fullName: String) {
 
         fun createNewExpression(listType: ListTypeAtSource, typeParam: String): String {
             return when (listType) {
-                List -> "mutableListOf<$typeParam>()"
+                MCollection,
+                List,
                 MutableList -> "mutableListOf<$typeParam>()"
+
                 MLinkedList -> "LinkedList<$typeParam>()"
             }
         }
@@ -135,6 +138,67 @@ class ListPrimitivePropMetaData(
     override fun mtoString(): String {
         return "list<${PrimitiveType.simpleName(type)}>"
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        return when (type) {
+            PrimitiveType.INT,
+            PrimitiveType.SHORT,
+            PrimitiveType.DOUBLE,
+            PrimitiveType.BYTE,
+            PrimitiveType.BOOL,
+            PrimitiveType.FLOAT,
+            PrimitiveType.LONG -> emptyList()
+
+            PrimitiveType.STRING -> listOf(
+                "m_serialization.utils.ByteBufUtils.strSerializeSize"
+            )
+
+            PrimitiveType.BYTE_ARRAY -> {
+                listOf("m_serialization.utils.ByteBufUtils.byteArraySerializeSize")
+            }
+        }
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+
+        val resultBuilder = StringBuilder()
+        resultBuilder
+            .append(
+                "var $varNameToAssign = 2;//list size\n"
+            )
+
+
+        val elementVarName = "e"
+
+        val moreAppend: String = when (type) {
+            PrimitiveType.FLOAT,
+            PrimitiveType.INT -> "$varNameToAssign += 4*$name.size"
+
+            PrimitiveType.SHORT -> "$varNameToAssign += 2*$name.size"
+
+            PrimitiveType.LONG,
+            PrimitiveType.DOUBLE -> "$varNameToAssign += 8*$name.size"
+
+            PrimitiveType.BOOL,
+            PrimitiveType.BYTE -> "$varNameToAssign += $name.size"
+
+
+            PrimitiveType.BYTE_ARRAY -> """
+    for($elementVarName in $name){
+        $varNameToAssign += $elementVarName.byteArraySerializeSize()
+    }
+            """.trimIndent()
+
+            PrimitiveType.STRING -> """
+    for($elementVarName in $name){
+        $varNameToAssign += $elementVarName.strSerializeSize()
+    }
+            """.trimIndent()
+        }
+        resultBuilder.append(moreAppend)
+
+        return resultBuilder.toString()
+    }
 }
 
 // if element class is sealed so insert unique tag otherwise not
@@ -223,6 +287,23 @@ class ListObjectPropMetaData(
     override fun mtoString(): String {
         return "list<${elementClass.simpleName.asString()}>"
     }
+
+    override fun addImportForCalculateSize(): List<String> {
+        return listOf(
+            "${elementClass.importSerializer()[0]}.$serializeSizeFuncName"
+        )
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        return """
+            var $varNameToAssign=2;// list size
+            for(e in $name){
+                $varNameToAssign += with(${elementClass.getSerializerObjectName()}){
+                    e.$serializeSizeFuncName();
+                }
+            }
+        """.trimIndent()
+    }
 }
 
 class ListEnumPropMetaData(
@@ -304,5 +385,16 @@ class ListEnumPropMetaData(
 
     override fun mtoString(): String {
         return "list<${enumClass.simpleName.asString()}>"
+    }
+
+    override fun addImportForCalculateSize(): List<String> {
+        return emptyList()
+    }
+
+    override fun expressionForCalSize(varNameToAssign: String): String {
+        return """
+            var $varNameToAssign=2;
+            $varNameToAssign += 2*$name.size
+        """.trimIndent()
     }
 }

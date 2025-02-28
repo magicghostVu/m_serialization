@@ -18,7 +18,7 @@ object KSClassDecUtils {
 
     fun KSClassDeclaration.getAllChildRecursive(
         context: KSClassDeclaration,
-        propName: String
+        propName: String,
     ): List<KSClassDeclaration> {
         //val className = qualifiedName?.asString();
         if (!this.modifiers.contains(Modifier.SEALED)) {
@@ -78,7 +78,11 @@ object KSClassDecUtils {
     fun KSClassDeclaration.getAllPropMetaData(): Map<String, AbstractPropMetadata> {
         val allPropWillAnalyze = getAllProperties()
             .filter {
-                it.hasBackingField
+                if (this.modifiers.contains(Modifier.SEALED)) {
+                    true
+                } else {
+                    it.hasBackingField
+                }
             }
             .filter {
                 !it.getAllAnnotationName().contains(MTransient::class.java.name)
@@ -228,15 +232,22 @@ object KSClassDecUtils {
 
     }
 
-    private fun processObjectProp(propDec: KSPropertyDeclaration, objectType: KSType): ObjectPropMetaData {
-        return ObjectPropMetaData(propDec.simpleName.asString(), propDec, objectType.declaration as KSClassDeclaration)
+    private fun processObjectProp(
+        propDec: KSPropertyDeclaration,
+        objectType: KSType,
+    ): ObjectPropMetaData {
+        return ObjectPropMetaData(
+            propDec.simpleName.asString(),
+            propDec,
+            objectType.declaration as KSClassDeclaration,
+        )
     }
 
 
     private fun processEnumProp(
         propDec: KSPropertyDeclaration,
         objectType: KSType,
-        enumClass: KSClassDeclaration
+        enumClass: KSClassDeclaration,
     ): EnumPropMetaData {
         return EnumPropMetaData(propDec.simpleName.asString(), propDec, enumClass)
     }
@@ -286,18 +297,17 @@ object KSClassDecUtils {
     fun KSClassDeclaration.getAllEnumEntrySimpleName(): List<String> {
         val result = mutableListOf<String>()
         declarations.forEach {
-            if (it is KSClassDeclaration) {
-                //logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
+            if (it is KSClassDeclaration && it.classKind == ClassKind.ENUM_ENTRY) {
                 result.add(it.simpleName.asString())
             }
         }
         return result
     }
 
-    fun KSClassDeclaration.getAllEnumEntryWithIndex(): List<Pair<String,Int>> {
-        val result = mutableListOf<Pair<String,Int>>()
+    fun KSClassDeclaration.getAllEnumEntryWithIndex(): List<Pair<String, Int>> {
+        val result = mutableListOf<Pair<String, Int>>()
         declarations.forEach {
-            if (it is KSClassDeclaration) {
+            if (it is KSClassDeclaration && it.classKind == ClassKind.ENUM_ENTRY) {
                 //logger.warn("entry of ${this.qualifiedName!!.asString()} is ${it.qualifiedName!!.asString()}")
                 result.add(Pair(it.simpleName.asString(), result.size))
             }
@@ -311,11 +321,12 @@ object KSClassDecUtils {
     }
 
     fun KSClassDeclaration.getSuperClass(): KSType {
-        return this.superTypes.first {  !it.javaClass.isInterface }.resolve()
+        return this.superTypes.first { !it.javaClass.isInterface }.resolve()
     }
-    fun KSClassDeclaration.getSuperClassNameJS():String{
-       val sup = this.getSuperClass()
-        if(sup.toClassName().toString() == "kotlin.Any")
+
+    fun KSClassDeclaration.getSuperClassNameJS(): String {
+        val sup = this.getSuperClass()
+        if (sup.toClassName().toString() == "kotlin.Any")
             return "JavaClass"
         return sup.toClassName().toString();
     }
