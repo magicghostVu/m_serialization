@@ -85,7 +85,7 @@ class JSClass(
 
     companion object {
         var lastId = 0;
-        val MapClassToID: MutableMap<KSClassDeclaration, Int> = mutableMapOf();
+        val MapClassToID: MutableMap<String, Int> = mutableMapOf();
     }
 
     fun bufferVar(): String {
@@ -111,7 +111,7 @@ class JSClass(
 
     fun rawFunName(): String {
         return "fun0x${
-            MapClassToID.computeIfAbsent(classDec) {
+            MapClassToID.computeIfAbsent(classDec.qualifiedName!!.asString()) {
                 lastId++
             }.toString(16)
         }"
@@ -119,7 +119,7 @@ class JSClass(
 
     private fun rawFunName(classDec: KSClassDeclaration, classToTag: Map<String, Short>): String {
         return "fun0x${
-            MapClassToID.computeIfAbsent(classDec) {
+            MapClassToID.computeIfAbsent(classDec.qualifiedName!!.asString()) {
                 lastId++
             }.toString(16)
         }"
