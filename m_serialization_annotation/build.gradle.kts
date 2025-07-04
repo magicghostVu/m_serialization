@@ -6,8 +6,6 @@ plugins {
     id("maven-publish")
 }
 
-group = "org.magicghostvu"
-version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
