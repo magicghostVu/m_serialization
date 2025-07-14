@@ -5,17 +5,12 @@ plugins {
     id("com.google.devtools.ksp") version "1.8.10-1.0.9"
 }
 
-group = "org.magicghostvu"
-version = "1.0-SNAPSHOT"
 
 repositories {
     mavenCentral()
 }
 
 dependencies {
-    testImplementation(kotlin("test"))
-
-
     // import netty
     implementation("io.netty:netty-buffer:4.1.85.Final")
 
@@ -28,9 +23,6 @@ dependencies {
     implementation(project(":m_serialization_annotation"))
 }
 
-tasks.test {
-    useJUnitPlatform()
-}
 
 java {
     sourceCompatibility = JavaVersion.VERSION_1_8
