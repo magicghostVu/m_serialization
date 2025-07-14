@@ -159,11 +159,11 @@ class JSClass(
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
 
             is MapPrimitiveKeyEnumValue -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${getExtractPrimitive(it.keyType)},value: this.${bufferVar()}.readEnum()}"
+                "return {key:${getExtractPrimitive(it.keyType)},value: ${bufferVar()}.readEnum()}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
 
             is MapEnumKeyEnumValue -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${bufferVar()}.readEnum(),value: this.${bufferVar()}.readEnum()}"
+                "return {key:${bufferVar()}.readEnum(),value: ${bufferVar()}.readEnum()}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
 
             is MapEnumKeyObjectValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
