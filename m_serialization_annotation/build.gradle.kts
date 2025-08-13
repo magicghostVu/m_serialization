@@ -16,13 +16,10 @@ dependencies{
 }
 
 java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
     withSourcesJar()
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.jvmTarget = "1.8"
     kotlinOptions.freeCompilerArgs = listOf(
         "-opt-in=kotlin.RequiresOptIn",
         "-Xno-call-assertions",

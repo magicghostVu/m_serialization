@@ -1,6 +1,5 @@
 package m_serialization.data.class_metadata
 
-import com.google.devtools.ksp.ExceptionMessage
 import com.google.devtools.ksp.processing.CodeGenerator
 import com.google.devtools.ksp.processing.Dependencies
 import com.google.devtools.ksp.symbol.ClassKind

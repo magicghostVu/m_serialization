@@ -8,6 +8,13 @@ plugins {
 
 repositories {
     mavenCentral()
+    maven {
+        url = uri("https://maven.pkg.github.com/magicghostVu/m_serialization")
+        credentials {
+            username = "magicghostVu"
+            password = property("github.pull.package") as String
+        }
+    }
 }
 
 dependencies {
@@ -24,11 +31,6 @@ dependencies {
 }
 
 
-java {
-    sourceCompatibility = JavaVersion.VERSION_1_8
-    targetCompatibility = JavaVersion.VERSION_1_8
-}
-
 tasks.register("cleanKsp") {
     doLast {
         delete("$buildDir/generated/ksp/main/kotlin")
@@ -37,5 +39,4 @@ tasks.register("cleanKsp") {
 
 tasks.withType<KotlinCompile> {
     dependsOn("cleanKsp")
-    kotlinOptions.jvmTarget = "1.8"
 }
