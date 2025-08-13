@@ -232,15 +232,18 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     listPropNotInConstructor.add(prop)
                 }
 
-                listPropNotInConstructor.forEach { propMeta ->
-                    if (!classDec.modifiers.contains(Modifier.SEALED)) {
-                        if (!propMeta.propDec.isMutable) {
-                            throwErr(
-                                "prop ${propMeta.name} at ${classDec.qualifiedName!!.asString()} is not in constructor so can not be immutable"
-                            )
+                if (classDec.classKind != ClassKind.ENUM_CLASS) {
+                    listPropNotInConstructor.forEach { propMeta ->
+                        if (!classDec.modifiers.contains(Modifier.SEALED)) {
+                            if (!propMeta.propDec.isMutable) {
+                                throwErr(
+                                    "prop ${propMeta.name} at ${classDec.qualifiedName!!.asString()} is not in constructor so can not be immutable"
+                                )
+                            }
                         }
                     }
                 }
+
 
 
                 val kotlinCodeGen = KotlinGenClassMetaData()

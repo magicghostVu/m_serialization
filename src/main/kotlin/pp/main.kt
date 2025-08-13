@@ -3,10 +3,28 @@ package pp
 import io.netty.buffer.Unpooled
 import m_serialization.annotations.GenCodeConf
 import m_serialization.annotations.MSerialization
+import m_serialization.annotations.MTransient
 import pp.EnumMapMSerializer.serializeSize
 import pp.EnumMapMSerializer.writeTo
 import pp.FFMSerializer.serializeSize
 import pp.FFMSerializer.writeTo
+
+@MSerialization
+sealed class PQ {
+    @MTransient
+    abstract val t: Thread
+
+    abstract val k: Int
+}
+
+@MSerialization
+class PQ1(
+    override val k: Int,
+    @MTransient
+    override val t: Thread = Thread.currentThread(),
+) : PQ() {
+}
+
 
 fun main() {
     val ff = FF(listOf("phuvh"), emptyList(), emptyList())
@@ -16,10 +34,10 @@ fun main() {
     println("serialize size is $gg, written size is ${buffer.writerIndex()}")
 
     val enumMap = EnumMap(
-        mapOf(EEE.E1 to EEE.E1 ),
+        mapOf(EEE.E1 to EEE.E1),
         0,
         mapOf(EEE.E1 to 10),
-        mapOf( EEE.E1 to C1(9)),
+        mapOf(EEE.E1 to C1(9)),
         mapOf(1 to EEE.E1, 2 to EEE.E1),
     )
     buffer.resetWriterIndex()
@@ -64,7 +82,7 @@ class FF(
     val jj: Int = 0,
     val l: String = "",
     val cv: ByteArray = ByteArray(1),
-    val p: EEE = EEE.E1
+    val p: EEE = EEE.E1,
 ) {
     var ggh: Double = 1.0
     var fff: MyO = MyO()

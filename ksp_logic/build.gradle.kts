@@ -1,7 +1,7 @@
-import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
+
 
 plugins {
-    kotlin("jvm") version "1.8.10"
+    kotlin("jvm") version "2.1.20"
     id("maven-publish")
 }
 
@@ -20,7 +20,7 @@ repositories {
 
 dependencies {
     //testImplementation(kotlin("test"))
-    implementation("com.google.devtools.ksp:symbol-processing-api:1.8.10-1.0.9")
+    implementation("com.google.devtools.ksp:symbol-processing-api:2.1.20-2.0.0")
     //implementation("io.netty:netty-buffer:4.1.85.Final")
 
     // add graph lib

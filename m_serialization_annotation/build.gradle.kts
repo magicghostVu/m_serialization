@@ -2,7 +2,7 @@ import org.gradle.jvm.tasks.Jar
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
-    kotlin("jvm") version "1.8.10"
+    kotlin("jvm") version "2.1.20"
     id("maven-publish")
 }
 
@@ -20,11 +20,13 @@ java {
 }
 
 tasks.withType<KotlinCompile> {
-    kotlinOptions.freeCompilerArgs = listOf(
-        "-opt-in=kotlin.RequiresOptIn",
-        "-Xno-call-assertions",
-        "-Xno-receiver-assertions",
-        "-Xno-param-assertions"
+    compilerOptions.freeCompilerArgs.set(
+        listOf(
+            "-opt-in=kotlin.RequiresOptIn",
+            "-Xno-call-assertions",
+            "-Xno-receiver-assertions",
+            "-Xno-param-assertions"
+        )
     )
 }
 tasks.register<Jar>("sourceJar"){

@@ -6,10 +6,12 @@ import java.util.TreeMap
 
 
 @MSerialization
-sealed class X(open val i: Int)
+sealed class X() {
+    abstract val i: Int
+}
 
 @MSerialization
-class X1(override val i: Int) : X(i)
+class X1(override val i: Int) : X()
 
 @MSerialization
 class NormalClass(val a: Int, val b: Int, val c: Int, val list: List<X>, val m: TreeMap<String, X>)
@@ -33,20 +35,24 @@ class C(val k: Int, val b: B, val listB: List<B>) {
 
 
 @MSerialization
-sealed class B(open val c: Int)
+sealed class B() {
+    abstract val c: Int
+}
 
 
 @MSerialization
-class B1(override val c: Int) : B(c)
+class B1(override val c: Int) : B()
 
 
 @MSerialization
-class B2(override val c: Int, val g: Long) : B(c)
+class B2(override val c: Int, val g: Long) : B()
 
 @MSerialization
-sealed class B3(override val c: Int) : B(c)
+sealed class B3() : B() {
+    abstract val d: Int
+}
 
 
 @MSerialization
-class B4(override val c: Int) : B3(c)
+class B4(override val c: Int, override val d: Int) : B3()
 
