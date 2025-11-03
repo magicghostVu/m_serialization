@@ -11,6 +11,102 @@ import m_serialization.utils.KSClassDecUtils.getAllActualChild
 import m_serialization.utils.KSClassDecUtils.getAllEnumEntryWithIndex
 import m_serialization.utils.KSClassDecUtils.getSuperClassNameJS
 import java.io.BufferedWriter
+import kotlin.reflect.KClass
+
+class JSClassDec {
+    val className: String
+    val superClassName: String
+    public val packageName: String
+    public val simpleName: String
+    private val allEnumEntry: List<Pair<String, Int>>
+    val isSealed: Boolean
+    val childClasses: List<JSClassDec>
+
+
+    constructor(dec: KSClassDeclaration) {
+        superClassName = dec.getSuperClassNameJS()
+        allEnumEntry = dec.getAllEnumEntryWithIndex()
+        className = dec.toClassName().toString()
+        packageName = dec.packageName.asString()
+        simpleName = dec.simpleName.asString()
+        isSealed = dec.modifiers.contains(Modifier.SEALED)
+        childClasses = dec.getAllActualChild().map { x -> JSClassDec(x) }
+    }
+
+    fun getAllEnumEntryWithIndex(): List<Pair<String, Int>> {
+        return allEnumEntry
+    }
+
+    fun toClassName(): String {
+        return className
+    }
+
+    fun getAllActualChild(): List<JSClassDec> {
+        return childClasses;
+    }
+
+}
+
+class JSPropMetaData {
+    val propClass: KClass<out AbstractPropMetadata>
+    val name: String
+    var type: PrimitiveType? = null
+    var classDec: JSClassDec? = null
+    var elementClass: JSClassDec? = null
+    var keyType: PrimitiveType? = null
+    var keyClassDec: JSClassDec? = null
+    var valueType: PrimitiveType? = null
+    var valueClassDec: JSClassDec? = null
+
+    constructor(prop: AbstractPropMetadata) {
+        propClass = prop::class
+        name = prop.name
+        when (prop) {
+            is PrimitivePropMetaData -> this.type = prop.type
+            is ObjectPropMetaData -> this.classDec = JSClassDec(prop.classDec)
+            is EnumPropMetaData -> this.classDec = JSClassDec(prop.enumClass)
+
+            //list
+            is ListObjectPropMetaData -> this.elementClass = JSClassDec(prop.elementClass)
+
+            is ListPrimitivePropMetaData -> this.type = prop.type
+
+            is ListEnumPropMetaData -> this.elementClass = JSClassDec(prop.enumClass)
+
+            //map
+            is MapPrimitiveKeyValueMetaData -> {
+                this.keyType = prop.keyType
+                this.valueType = prop.valueType
+            }
+
+            is MapPrimitiveKeyObjectValueMetaData -> {
+                this.keyType = prop.keyType
+                this.valueClassDec = JSClassDec(prop.valueClassDec)
+            }
+
+            is MapPrimitiveKeyEnumValue -> {
+                this.keyType = prop.keyType
+                this.valueClassDec = JSClassDec(prop.enumValue)
+            }
+
+            is MapEnumKeyEnumValue -> {
+                this.keyClassDec = JSClassDec(prop.enumValue)
+                this.valueClassDec = JSClassDec(prop.enumValue)
+            }
+
+            is MapEnumKeyObjectValuePropMetaData -> {
+                this.keyClassDec = JSClassDec(prop.enumKey)
+                this.valueClassDec = JSClassDec(prop.valueType)
+            }
+
+            is MapEnumKeyPrimitiveValuePropMetaData -> {
+                this.keyClassDec = JSClassDec(prop.enumKey)
+                this.valueType = prop.valueType
+            }
+
+        }
+    }
+}
 
 class JSGenClassMetaData() : ClassMetaData() {
     companion object {
@@ -40,23 +136,35 @@ class JSGenClassMetaData() : ClassMetaData() {
 
 }
 
-sealed class JSElement() {
+sealed class JSElement(dec: KSClassDeclaration) {
+    val classDec = JSClassDec(dec)
     abstract fun treeElementString(): String
     abstract fun jsDocTree(): String
-    fun jsDocType(type: AbstractPropMetadata): String {
-        return when (type) {
-            is PrimitivePropMetaData -> primitiveJsDocType(type.type)
-            is ObjectPropMetaData -> type.classDec.toClassName().toString()
-            is EnumPropMetaData -> type.enumClass.toClassName().toString()
-            is ListEnumPropMetaData -> "${type.enumClass.toClassName()}[]"
-            is ListObjectPropMetaData -> "${type.elementClass.toClassName()}[]"
-            is ListPrimitivePropMetaData -> "${primitiveJsDocType(type.type)}[]"
-            is MapEnumKeyEnumValue -> "Object.<${type.enumKey.toClassName()},${type.enumValue.toClassName()}>"
-            is MapEnumKeyObjectValuePropMetaData -> "Object.<${type.enumKey.toClassName()},${type.valueType.toClassName()}>"
-            is MapEnumKeyPrimitiveValuePropMetaData -> "Object.<${type.enumKey.toClassName()},${primitiveJsDocType(type.valueType)}>"
-            is MapPrimitiveKeyEnumValue -> "Object.<${primitiveJsDocType(type.keyType)},${type.enumValue.toClassName()}>"
-            is MapPrimitiveKeyObjectValueMetaData -> "Object.<${primitiveJsDocType(type.keyType)},${type.valueClassDec.toClassName()}>"
-            is MapPrimitiveKeyValueMetaData -> "Object.<${primitiveJsDocType(type.keyType)},${primitiveJsDocType(type.valueType)}>"
+    fun jsDocType(type: JSPropMetaData): String {
+        return when (type.propClass) {
+            PrimitivePropMetaData::class -> primitiveJsDocType(type.type!!)
+            ObjectPropMetaData::class -> type.classDec!!.toClassName().toString()
+            EnumPropMetaData::class -> type.classDec!!.toClassName().toString()
+            ListEnumPropMetaData::class -> "${type.elementClass!!.toClassName()}[]"
+            ListObjectPropMetaData::class -> "${type.elementClass!!.toClassName()}[]"
+            ListPrimitivePropMetaData::class -> "${primitiveJsDocType(type.type!!)}[]"
+            MapEnumKeyEnumValue::class -> "Object.<${type.keyClassDec!!.toClassName()},${type.valueClassDec!!.toClassName()}>"
+            MapEnumKeyObjectValuePropMetaData::class -> "Object.<${type.keyClassDec!!.toClassName()},${type.valueClassDec!!.toClassName()}>"
+            MapEnumKeyPrimitiveValuePropMetaData::class -> "Object.<${type.keyClassDec!!.toClassName()},${
+                primitiveJsDocType(
+                    type.valueType!!
+                )
+            }>"
+
+            MapPrimitiveKeyEnumValue::class -> "Object.<${primitiveJsDocType(type.keyType!!)},${type.valueClassDec!!.toClassName()}>"
+            MapPrimitiveKeyObjectValueMetaData::class -> "Object.<${primitiveJsDocType(type.keyType!!)},${type.valueClassDec!!.toClassName()}>"
+            MapPrimitiveKeyValueMetaData::class -> "Object.<${primitiveJsDocType(type.keyType!!)},${
+                primitiveJsDocType(
+                    type.valueType!!
+                )
+            }>"
+
+            else -> error("class ${type.propClass} not implement.")
         }
     }
 
@@ -77,11 +185,10 @@ sealed class JSElement() {
 
 }
 
-class JSClass(
-    val classId: Short,
-    val classDec: KSClassDeclaration,
-    val constructorProps: List<AbstractPropMetadata>
-) : JSElement() {
+class JSClass(val classId: Short, classDec: KSClassDeclaration, props: List<AbstractPropMetadata>) :
+    JSElement(classDec) {
+
+    val constructorProps = props.map { it -> JSPropMetaData(it) }
 
     companion object {
         var lastId = 0;
@@ -111,73 +218,71 @@ class JSClass(
 
     fun rawFunName(): String {
         return "fun0x${
-            MapClassToID.computeIfAbsent(classDec.qualifiedName!!.asString()) {
+            MapClassToID.computeIfAbsent(classDec.toClassName()) {
                 lastId++
             }.toString(16)
         }"
     }
 
-    private fun rawFunName(classDec: KSClassDeclaration, classToTag: Map<String, Short>): String {
+    private fun rawFunName(classDec: JSClassDec): String {
         return "fun0x${
-            MapClassToID.computeIfAbsent(classDec.qualifiedName!!.asString()) {
+            MapClassToID.computeIfAbsent(classDec.toClassName()) {
                 lastId++
             }.toString(16)
         }"
     }
 
-    private fun getExtractFunction(it: AbstractPropMetadata, classToTag: MutableMap<String, Short>): String {
-        return when (it) {
-            is PrimitivePropMetaData -> getExtractPrimitive(it.type)
-            is ObjectPropMetaData -> "this.${rawFunName(it.classDec, classToTag)}0(${bufferVar()})"
-            is EnumPropMetaData -> "${bufferVar()}.readEnum()"
+    private fun getExtractFunction(it: JSPropMetaData, classToTag: MutableMap<String, Short>): String {
+        return when (it.propClass) {
+            PrimitivePropMetaData::class -> getExtractPrimitive(it.type!!)
+            ObjectPropMetaData::class -> "this.${rawFunName(it.classDec!!)}0(${bufferVar()})"
+            EnumPropMetaData::class -> "${bufferVar()}.readEnum()"
 
             //list
-            is ListObjectPropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return this.${rawFunName(it.elementClass, classToTag)}0(${bufferVar()})"
+            ListObjectPropMetaData::class -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
+                "return this.${rawFunName(it.elementClass!!)}0(${bufferVar()})"
             }}.bind(this,${bufferVar()}))"
 
-            is ListPrimitivePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return ${getExtractPrimitive(it.type)}"
+            ListPrimitivePropMetaData::class -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
+                "return ${getExtractPrimitive(it.type!!)}"
             }}.bind(this,${bufferVar()}))"
 
-            is ListEnumPropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
+            ListEnumPropMetaData::class -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return ${bufferVar()}.readEnum()"
             }}.bind(this,${bufferVar()}))"
 
             //map
-            is MapPrimitiveKeyValueMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${getExtractPrimitive(it.keyType)},value: ${getExtractPrimitive(it.valueType)}}"
+            MapPrimitiveKeyValueMetaData::class -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
+                "return {key:${getExtractPrimitive(it.keyType!!)},value: ${getExtractPrimitive(it.valueType!!)}}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
 
-            is MapPrimitiveKeyObjectValueMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${getExtractPrimitive(it.keyType)},value: this.${
-                    rawFunName(
-                        it.valueClassDec,
-                        classToTag
-                    )
+            MapPrimitiveKeyObjectValueMetaData::class -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
+                "return {key:${getExtractPrimitive(it.keyType!!)},value: this.${
+                    rawFunName(it.valueClassDec!!)
                 }0(${bufferVar()})}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
 
-            is MapPrimitiveKeyEnumValue -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${getExtractPrimitive(it.keyType)},value: ${bufferVar()}.readEnum()}"
+            MapPrimitiveKeyEnumValue::class -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
+                "return {key:${getExtractPrimitive(it.keyType!!)},value: ${bufferVar()}.readEnum()}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
 
-            is MapEnumKeyEnumValue -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
+            MapEnumKeyEnumValue::class -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${bufferVar()}.readEnum(),value: ${bufferVar()}.readEnum()}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
 
-            is MapEnumKeyObjectValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
+            MapEnumKeyObjectValuePropMetaData::class -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
                 "return {key:${bufferVar()}.readEnum(),value: this.${
                     rawFunName(
-                        it.valueType,
-                        classToTag
+                        it.valueClassDec!!
                     )
                 }0(${bufferVar()})}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
 
-            is MapEnumKeyPrimitiveValuePropMetaData -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
-                "return {key:${bufferVar()}.readEnum(),value: ${getExtractPrimitive(it.valueType)}}"
+            MapEnumKeyPrimitiveValuePropMetaData::class -> "Array(${bufferVar()}.readSize()).fill(0).map(function(${bufferVar()}){${
+                "return {key:${bufferVar()}.readEnum(),value: ${getExtractPrimitive(it.valueType!!)}}"
             }}.bind(this,${bufferVar()})).reduce(this.arrayToMap.bind(this), {})"
+
+            else -> error("class ${it.propClass.simpleName} not implement.")
         }
     }
 
@@ -210,89 +315,87 @@ class JSClass(
         }
     }
 
-    private fun getZipFunction(it: AbstractPropMetadata, classToTag: Map<String, Short>): String {
-        return when (it) {
-            is PrimitivePropMetaData -> getZipPrimitive(it.type, bufferVar(), "${objVar()}.${it.name}")
-            is ObjectPropMetaData -> "this.${
-                rawFunName(
-                    it.classDec,
-                    classToTag
-                )
+    private fun getZipFunction(it: JSPropMetaData, classToTag: Map<String, Short>): String {
+        return when (it.propClass) {
+            PrimitivePropMetaData::class -> getZipPrimitive(it.type!!, bufferVar(), "${objVar()}.${it.name}")
+            ObjectPropMetaData::class -> "this.${
+                rawFunName(it.classDec!!)
             }2(${bufferVar()},${objVar()}.${it.name});"
 
-            is EnumPropMetaData -> "${bufferVar()}.writeEnum(${objVar()}.${it.name});"
+            EnumPropMetaData::class -> "${bufferVar()}.writeEnum(${objVar()}.${it.name});"
 
             //list
-            is ListObjectPropMetaData -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
+            ListObjectPropMetaData::class -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
                     "${objVar()}.${it.name}.forEach(function(${bufferVar()}, ${subObjVar()}){${
-                        "this.${rawFunName(it.elementClass, classToTag)}2(${bufferVar()}, ${subObjVar()})"
+                        "this.${rawFunName(it.elementClass!!)}2(${bufferVar()}, ${subObjVar()})"
                     }}.bind(this,${bufferVar()}));"
 
-            is ListPrimitivePropMetaData -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
+            ListPrimitivePropMetaData::class -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
                     "${objVar()}.${it.name}.forEach(function(${bufferVar()}, ${subObjVar()}){${
-                        getZipPrimitive(it.type, bufferVar(), subObjVar())
+                        getZipPrimitive(it.type!!, bufferVar(), subObjVar())
                     }}.bind(this,${bufferVar()}));"
 
-            is ListEnumPropMetaData -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
+            ListEnumPropMetaData::class -> "${bufferVar()}.writeSize(${objVar()}.${it.name}.length);" +
                     "${objVar()}.${it.name}.forEach(function(${bufferVar()}, ${subObjVar()}){${
                         "${bufferVar()}.writeEnum(${subObjVar()})"
                     }}.bind(this,${bufferVar()}));"
 
             //map
-            is MapPrimitiveKeyValueMetaData -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
+            MapPrimitiveKeyValueMetaData::class -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
                     "function(${bufferVar()},${subObjVar()}){${
-                        getZipPrimitive(it.keyType, bufferVar(), subObjVar())
+                        getZipPrimitive(it.keyType!!, bufferVar(), subObjVar())
                     }}," +
                     "function(${bufferVar()},${subObjVar()}){${
-                        getZipPrimitive(it.keyType, bufferVar(), subObjVar())
+                        getZipPrimitive(it.keyType!!, bufferVar(), subObjVar())
                     }});"
 
-            is MapPrimitiveKeyObjectValueMetaData -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
+            MapPrimitiveKeyObjectValueMetaData::class -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
                     "function(${bufferVar()},${subObjVar()}){${
-                        getZipPrimitive(it.keyType, bufferVar(), subObjVar())
+                        getZipPrimitive(it.keyType!!, bufferVar(), subObjVar())
                     }}," +
-                    "this.${rawFunName(it.valueClassDec, classToTag)}2.bind(this));"
+                    "this.${rawFunName(it.valueClassDec!!)}2.bind(this));"
 
-            is MapPrimitiveKeyEnumValue -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
+            MapPrimitiveKeyEnumValue::class -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
                     "function(${bufferVar()},${subObjVar()}){${
-                        getZipPrimitive(it.keyType, bufferVar(), subObjVar())
-                    }}," +
-                    "function(${bufferVar()},${subObjVar()}){${
-                        "${bufferVar()}.writeEnum(${subObjVar()})"
-                    }});"
-
-            is MapEnumKeyEnumValue -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
-                    "function(${bufferVar()},${subObjVar()}){${
-                        "${bufferVar()}.writeEnum(${subObjVar()})"
+                        getZipPrimitive(it.keyType!!, bufferVar(), subObjVar())
                     }}," +
                     "function(${bufferVar()},${subObjVar()}){${
                         "${bufferVar()}.writeEnum(${subObjVar()})"
                     }});"
 
-            is MapEnumKeyObjectValuePropMetaData -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
-                    "function(${bufferVar()},${subObjVar()}){${
-                        "${bufferVar()}.writeEnum(${subObjVar()})"
-                    }}," +
-                    "this.${rawFunName(it.valueType, classToTag)}2.bind(this));"
-
-            is MapEnumKeyPrimitiveValuePropMetaData -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
+            MapEnumKeyEnumValue::class -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
                     "function(${bufferVar()},${subObjVar()}){${
                         "${bufferVar()}.writeEnum(${subObjVar()})"
                     }}," +
                     "function(${bufferVar()},${subObjVar()}){${
-                        getZipPrimitive(it.valueType, bufferVar(), subObjVar())
+                        "${bufferVar()}.writeEnum(${subObjVar()})"
                     }});"
 
+            MapEnumKeyObjectValuePropMetaData::class -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
+                    "function(${bufferVar()},${subObjVar()}){${
+                        "${bufferVar()}.writeEnum(${subObjVar()})"
+                    }}," +
+                    "this.${rawFunName(it.valueClassDec!!)}2.bind(this));"
+
+            MapEnumKeyPrimitiveValuePropMetaData::class -> "this.${zipMapFun()}(${bufferVar()},${objVar()}.${it.name}," +
+                    "function(${bufferVar()},${subObjVar()}){${
+                        "${bufferVar()}.writeEnum(${subObjVar()})"
+                    }}," +
+                    "function(${bufferVar()},${subObjVar()}){${
+                        getZipPrimitive(it.valueType!!, bufferVar(), subObjVar())
+                    }});"
+
+            else -> error("class ${it.propClass.simpleName} not implement.")
         }
     }
 
     private fun classExtractFunction(classToTag: MutableMap<String, Short>): String {
-        return if (classDec.modifiers.contains(Modifier.SEALED))
+        return if (classDec.isSealed)
             "var javaClass= ${bufferVar()}.readJavaClass(); switch(javaClass){${
                 classDec.getAllActualChild().joinToString("") {
                     "case ${
                         classToTag[it.toClassName().toString()]
-                    }:{return this.${rawFunName(it, classToTag)}0(${bufferVar()})}"
+                    }:{return this.${rawFunName(it)}0(${bufferVar()})}"
                 }
             }default: throw new Error(${errorType(classId, "javaClass")})}"
         else
@@ -303,12 +406,12 @@ class JSClass(
 
 
     private fun classZipFunction(classToTag: MutableMap<String, Short>): String {
-        return if (classDec.modifiers.contains(Modifier.SEALED))
+        return if (classDec.isSealed)
             "${bufferVar()}.writeJavaClass(${objVar()}.javaClass);switch(${objVar()}.javaClass){${
                 classDec.getAllActualChild().joinToString("") {
                     "case ${
-                        classToTag[it.toClassName().toString()]
-                    }:{ this.${rawFunName(it, classToTag)}2(${bufferVar()}, ${objVar()});break;}"
+                        classToTag[it.toClassName()]
+                    }:{ this.${rawFunName(it)}2(${bufferVar()}, ${objVar()});break;}"
                 }
             }default: throw new Error(${errorType(classId, "${objVar()}.javaClass")})}"
         else
@@ -323,11 +426,12 @@ class JSClass(
                 )
             }},"
         )
-        file.write("${rawFunName()}1:function(${
-            constructorProps.joinToString(",") { it.name }
-        }){return {javaClass:${classId}${if (constructorProps.isNotEmpty()) "," else ""}${
-            constructorProps.joinToString(",") { "${it.name}:${it.name}" }
-        }}},")
+        file.write(
+            "${rawFunName()}1:function(${
+                constructorProps.joinToString(",") { it.name }
+            }){return {javaClass:${classId}${if (constructorProps.isNotEmpty()) "," else ""}${
+                constructorProps.joinToString(",") { "${it.name}:${it.name}" }
+            }}},")
         file.write(
             "${rawFunName()}2:function(${bufferVar()}, ${objVar()}){${classZipFunction(classDecToUniqueTag)}},"
         )
@@ -348,7 +452,7 @@ class JSClass(
     }
 
     fun writeClassJSDOC(file: BufferedWriter) {
-        file.write("/** @typedef {${classDec.getSuperClassNameJS()}} ${classDec.toClassName()}\n")
+        file.write("/** @typedef {${classDec.superClassName}} ${classDec.toClassName()}\n")
         constructorProps.forEach { file.write("* @property {${jsDocType(it)}} ${it.name}\n") }
         file.write("*/\n")
         file.write("/**@typedef {JavaClass} ${classDec.toClassName()}${AbstractPropMetadata.serializerObjectNameSuffix}\n");
@@ -360,7 +464,9 @@ class JSClass(
 
 }
 
-class JSEnum(var classDec: KSClassDeclaration) : JSElement() {
+class JSEnum(classDec: KSClassDeclaration) : JSElement(classDec) {
+
+
     override fun treeElementString(): String {
         return "{${classDec.getAllEnumEntryWithIndex().joinToString { "${it.first}:${it.second}" }}}"
     }
@@ -454,18 +560,18 @@ class JSFile(val fileName: String) {
 
     fun addClass(jsClass: JSClass) {
         this.classes.add(jsClass)
-        this.classDecToUniqueTag[jsClass.classDec.toClassName().toString()] = jsClass.classId
+        this.classDecToUniqueTag[jsClass.classDec.toClassName()] = jsClass.classId
 
         this.addTree(
-            jsClass.classDec.packageName.asString().split("."),
-            jsClass.classDec.simpleName.asString(),
+            jsClass.classDec.packageName.split("."),
+            jsClass.classDec.simpleName,
             jsClass
         )
     }
 
     fun addEnum(jsEnum: JSEnum) {
         this.enums.add(jsEnum)
-        this.addTree(jsEnum.classDec.packageName.asString().split("."), jsEnum.classDec.simpleName.asString(), jsEnum)
+        this.addTree(jsEnum.classDec.packageName.split("."), jsEnum.classDec.simpleName, jsEnum)
     }
 
     private fun addTree(packet: List<String>, name: String, element: JSElement) {
