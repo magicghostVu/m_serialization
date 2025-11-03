@@ -56,8 +56,8 @@ publishing {
     publications {
         create<MavenPublication>("maven") {
             groupId = "com.magicghostvu"
-            artifactId = "m-serialization-codegen"
-            version = "0.1.6"
+            artifactId = "m-serialization-codegen-k2"
+            version = "0.1.7"
             from(components["kotlin"])
             artifact(tasks["sourcesJar"])
         }
