@@ -1,6 +1,8 @@
 package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import m_serialization.data.export_json_meta.PrimitivePropJsonMeta
+import m_serialization.data.export_json_meta.PropJsonMeta
 
 class PrimitivePropMetaData(
     override val name: String,
@@ -35,5 +37,9 @@ class PrimitivePropMetaData(
 
     override fun expressionForCalSize(varNameToAssign: String): String {
         TODO("Not yet implemented")
+    }
+
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return PrimitivePropJsonMeta(name, type)
     }
 }

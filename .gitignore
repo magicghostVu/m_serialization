@@ -2,3 +2,5 @@
 build
 .idea
 logs
+meta.json
+relation.gv

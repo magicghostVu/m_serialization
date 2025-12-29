@@ -3,6 +3,11 @@ package m_serialization.data.prop_meta_data
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import m_serialization.data.export_json_meta.MapEnumKeyObjectValueJsonMeta
+import m_serialization.data.export_json_meta.MapEnumKeyPrimitiveValueJsonMeta
+import m_serialization.data.export_json_meta.MapPrimitiveKeyObjectValueJsonMeta
+import m_serialization.data.export_json_meta.MapPrimitiveKeyValueJsonMeta
+import m_serialization.data.export_json_meta.PropJsonMeta
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
@@ -47,6 +52,15 @@ class MapEnumKeyPrimitiveValuePropMetaData(
     val valueType: PrimitiveType,
     mapTypeAtSource: MapTypeAtSource
 ) : MapEnumKeyPropMetaData(mapTypeAtSource, enumKey) {
+
+
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return MapEnumKeyPrimitiveValueJsonMeta(
+            name,
+            enumKey.qualifiedName!!.asString(),
+            valueType,
+        )
+    }
 
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
@@ -151,6 +165,15 @@ class MapEnumKeyObjectValuePropMetaData(
     val valueType: KSClassDeclaration,
     mapTypeAtSource: MapTypeAtSource
 ) : MapEnumKeyPropMetaData(mapTypeAtSource, enumKey) {
+
+
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return MapEnumKeyObjectValueJsonMeta(
+            name,
+            enumKey.qualifiedName!!.asString(),
+            valueType.qualifiedName!!.asString(),
+        )
+    }
 
     override fun mtoString(): String {
         return "map<${enumKey.simpleName.asString()},${valueType.simpleName.asString()}>"
@@ -257,6 +280,15 @@ class MapEnumKeyEnumValue(
     mapTypeAtSource: MapTypeAtSource
 ) : MapEnumKeyPropMetaData(mapTypeAtSource, enumKey) {
 
+
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return MapEnumKeyObjectValueJsonMeta(
+            name,
+            enumKey.qualifiedName!!.asString(),
+            enumValue.qualifiedName!!.asString(),
+        )
+    }
+
     override fun mtoString(): String {
         return "map<${enumKey.simpleName.asString()},${enumValue.simpleName.asString()}>"
     }
@@ -362,6 +394,12 @@ class MapPrimitiveKeyValueMetaData(
     val valueType: PrimitiveType,
     mapTypeAtSource: MapTypeAtSource
 ) : MapPrimitiveKeyPropMetaData(mapTypeAtSource) {
+
+
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return MapPrimitiveKeyValueJsonMeta(name, keyType, valueType)
+    }
+
     override fun mtoString(): String {
         return "map<${PrimitiveType.simpleName(keyType)},${PrimitiveType.simpleName(valueType)}>"
     }
@@ -473,6 +511,15 @@ class MapPrimitiveKeyObjectValueMetaData(
         return "map<${PrimitiveType.simpleName(keyType)},${valueClassDec.simpleName.asString()}>"
     }
 
+
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return MapPrimitiveKeyObjectValueJsonMeta(
+            name,
+            keyType,
+            valueClassDec.qualifiedName!!.asString(),
+        )
+    }
+
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";
         val statement = """
@@ -578,6 +625,14 @@ class MapPrimitiveKeyEnumValue(
     val enumValue: KSClassDeclaration,
     mapTypeAtSource: MapTypeAtSource
 ) : MapPrimitiveKeyPropMetaData(mapTypeAtSource) {
+
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return MapPrimitiveKeyObjectValueJsonMeta(
+            name,
+            keyType,
+            enumValue.qualifiedName!!.asString()
+        )
+    }
 
     override fun mtoString(): String {
         return "map<${PrimitiveType.simpleName(keyType)},${enumValue.simpleName.asString()}>"
