@@ -2,6 +2,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 plugins {
     kotlin("jvm") version "1.8.10"
+    kotlin("plugin.serialization") version "1.8.10"
     id("maven-publish")
 }
 
@@ -33,7 +34,8 @@ dependencies {
 
     //implementation(project(":m_serialization_annotation"))
 
-    implementation("com.magicghostvu","m-serialization-runtime", "0.1.1")
+    implementation("com.magicghostvu", "m-serialization-runtime", "0.1.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.0")
 }
 
 

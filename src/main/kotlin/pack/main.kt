@@ -29,7 +29,7 @@ fun main() {
 
     val cc: pClass = aSingle(1, "hello", 6, 7);
     val buffer = Unpooled.buffer();
-    cc.writeTo(cc, buffer)
+    cc.writeTo( buffer)
     val byte = ByteArray(buffer.readableBytes());
     buffer.readBytes(byte);
     buffer.resetReaderIndex()

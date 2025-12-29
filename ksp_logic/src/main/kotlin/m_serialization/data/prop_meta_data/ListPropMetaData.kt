@@ -3,6 +3,9 @@ package m_serialization.data.prop_meta_data
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
 import com.google.devtools.ksp.symbol.KSType
+import m_serialization.data.export_json_meta.ListObjectPropJsonMeta
+import m_serialization.data.export_json_meta.ListPrimitivePropJsonMeta
+import m_serialization.data.export_json_meta.PropJsonMeta
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.getWriteObjectStatement
 import m_serialization.utils.KSClassDecUtils.importSerializer
@@ -53,6 +56,9 @@ class ListPrimitivePropMetaData(
     listType: KSType
 ) : ListPropMetaData(listType) {
 
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return ListPrimitivePropJsonMeta(name, type)
+    }
 
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";// ByteBuf
@@ -210,6 +216,10 @@ class ListObjectPropMetaData(
 ) : ListPropMetaData(listType) {
 
 
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return ListObjectPropJsonMeta(name, elementClass.qualifiedName!!.asString())
+    }
+
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";// ByteBuf
         val r = String.format(
@@ -312,6 +322,12 @@ class ListEnumPropMetaData(
     val enumClass: KSClassDeclaration,
     listType: KSType
 ) : ListPropMetaData(listType) {
+
+
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return ListObjectPropJsonMeta(name, enumClass.qualifiedName!!.asString())
+    }
+
     override fun getWriteStatement(objectNameContainThisProp: String): String {
         val bufferVarName = "buffer";// ByteBuf
         val r = String.format(

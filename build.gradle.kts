@@ -8,6 +8,13 @@ plugins {
 
 repositories {
     mavenCentral()
+    maven {
+        url = uri("https://maven.pkg.github.com/magicghostVu/m_serialization")
+        credentials {
+            username = "magicghostVu"
+            password = property("github.pull.package") as String
+        }
+    }
 }
 
 dependencies {

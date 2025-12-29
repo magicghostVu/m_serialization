@@ -4,6 +4,8 @@ import com.google.devtools.ksp.processing.Resolver
 import com.google.devtools.ksp.processing.SymbolProcessor
 import com.google.devtools.ksp.processing.SymbolProcessorEnvironment
 import com.google.devtools.ksp.symbol.*
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 import m_serialization.annotations.GenCodeConf
 import m_serialization.annotations.MSerialization
 import m_serialization.annotations.MTransient
@@ -43,6 +45,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     private val logger = env.logger
 
     private var protocolVersionGenerated = false
+    private var classRelationGenerated = false
 
 
     // tạm thời chưa hỗ trợ object làm key
@@ -232,12 +235,14 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     listPropNotInConstructor.add(prop)
                 }
 
-                listPropNotInConstructor.forEach { propMeta ->
-                    if (!classDec.modifiers.contains(Modifier.SEALED)) {
-                        if (!propMeta.propDec.isMutable) {
-                            throwErr(
-                                "prop ${propMeta.name} at ${classDec.qualifiedName!!.asString()} is not in constructor so can not be immutable"
-                            )
+                if (classDec.classKind != ClassKind.ENUM_CLASS) {
+                    listPropNotInConstructor.forEach { propMeta ->
+                        if (!classDec.modifiers.contains(Modifier.SEALED)) {
+                            if (!propMeta.propDec.isMutable) {
+                                throwErr(
+                                    "prop ${propMeta.name} at ${classDec.qualifiedName!!.asString()} is not in constructor so can not be immutable"
+                                )
+                            }
                         }
                     }
                 }
@@ -327,10 +332,31 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
                     it.genFileProtocolVersion(env.codeGenerator, protocolVersion)
                 }
             }
+            exportJsonMeta(allCodeGen)
             protocolVersionGenerated = true
         }
 
         return emptyList()
+    }
+
+
+    private fun exportJsonMeta(allClassMeta: List<ClassMetaData>) {
+        val allJsonMeta = allClassMeta.asSequence()
+            .filter {
+                it is KotlinGenClassMetaData
+            }.map {
+                it as KotlinGenClassMetaData
+            }.map {
+                it.toJsonClassMetaData()
+            }.toList()
+        val result = Json.encodeToString(allJsonMeta)
+        val file = File(System.getProperty("user.dir") + "/meta.json")
+        if (file.exists()) {
+            file.delete()
+        }
+        file.createNewFile()
+        file.writeText(result)
+        logger.warn("meta json write to ${file.absolutePath}")
     }
 
     private fun generateTag(allClass: Set<KSClassDeclaration>): Map<KSClassDeclaration, Short> {
@@ -360,6 +386,9 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
     }
 
     private fun exportDependenciesGraph(graph: DefaultDirectedGraph<String, DefaultEdge>) {
+
+        if (classRelationGenerated) return;
+
         val exporter: DOTExporter<String, DefaultEdge> = DOTExporter<String, DefaultEdge>()
 
         exporter.setVertexAttributeProvider {
@@ -382,6 +411,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
         Files.write(file.toPath(), graphStr.toByteArray(StandardCharsets.UTF_8))
 
         logger.warn("class relationship write to ${file.absolutePath}")
+        classRelationGenerated = true
     }
 
     private fun KSClassDeclaration.getAllDirectDependencies(): List<KSClassDeclaration> {
@@ -636,7 +666,7 @@ class MSerializationSymbolProcessor(private val env: SymbolProcessorEnvironment)
 
     }
 
-    private fun throwErr(msg: String) {
+    private fun throwErr(msg: String): Nothing {
         logger.error(msg)
         throw IllegalArgumentException(msg)
     }
