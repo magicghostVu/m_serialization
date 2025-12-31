@@ -7,11 +7,11 @@ import java.nio.charset.StandardCharsets
 object ByteBufUtils {
     fun ByteBuf.writeString(str: String) {
         val array = str.toByteArray(StandardCharsets.UTF_8)
-        val sizeShort = array.size.toUShort()
-        if (sizeShort > UShort.MAX_VALUE) {
+        val size = array.size
+        if (size > UShort.MAX_VALUE.toInt()) {
             throw IllegalArgumentException("size of string too big")
         }
-        writeShort(sizeShort.toInt())
+        writeShort(size)
         writeBytes(array)
     }
 
