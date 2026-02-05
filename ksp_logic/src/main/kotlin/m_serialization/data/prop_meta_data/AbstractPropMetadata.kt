@@ -1,6 +1,7 @@
 package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import m_serialization.data.export_json_meta.PropJsonMeta
 
 sealed class AbstractPropMetadata() {
     abstract val name: String
@@ -23,6 +24,8 @@ sealed class AbstractPropMetadata() {
 
 
     abstract fun mtoString(): String
+
+    abstract fun toJsonPropMetaJson(): PropJsonMeta
 
     companion object {
 

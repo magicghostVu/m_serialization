@@ -2,6 +2,8 @@ package m_serialization.data.prop_meta_data
 
 import com.google.devtools.ksp.symbol.KSClassDeclaration
 import com.google.devtools.ksp.symbol.KSPropertyDeclaration
+import m_serialization.data.export_json_meta.ObjectPropJsonMeta
+import m_serialization.data.export_json_meta.PropJsonMeta
 import m_serialization.utils.KSClassDecUtils.getSerializerObjectName
 import m_serialization.utils.KSClassDecUtils.importSerializer
 
@@ -42,7 +44,12 @@ class EnumPropMetaData(
     override fun expressionForCalSize(varNameToAssign: String): String {
         return "var $varNameToAssign=2"
     }
+
     override fun mtoString(): String {
         return enumClass.simpleName.asString()
+    }
+
+    override fun toJsonPropMetaJson(): PropJsonMeta {
+        return ObjectPropJsonMeta(name, enumClass.qualifiedName!!.asString())
     }
 }

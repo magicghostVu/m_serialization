@@ -33,7 +33,7 @@ dependencies {
 
 tasks.register("cleanKsp") {
     doLast {
-        delete("$buildDir/generated/ksp/main/kotlin")
+        delete("${layout.buildDirectory.get()}/generated/ksp/main/kotlin")
     }
 }
 

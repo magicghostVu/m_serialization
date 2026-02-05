@@ -2,6 +2,7 @@
 
 plugins {
     kotlin("jvm") version "2.1.20"
+    kotlin("plugin.serialization") version "2.1.20"
     id("maven-publish")
 }
 
@@ -15,7 +16,6 @@ repositories {
             password = property("github.pull.package") as String
         }
     }
-
 }
 
 dependencies {
@@ -34,6 +34,8 @@ dependencies {
     //implementation(project(":m_serialization_annotation"))
 
     implementation("com.magicghostvu","m-serialization-runtime", "0.1.1")
+
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json-jvm:1.8.1")
 }
 
 
